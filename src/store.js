@@ -1,9 +1,10 @@
 import { createStore, combineReducers } from 'redux';
 import signupReducer from './reducers/signupReducer';
+import authReducer from './reducers/authReducer';
 
 const rootReducer = combineReducers({
     signup: signupReducer,
-    // 여기에 다른 리듀서를 추가할 수 있습니다.
+    auth: authReducer,    
 });
 
 const store = createStore(rootReducer);
