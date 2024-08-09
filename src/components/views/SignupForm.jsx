@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../firebase";
+import { setDoc, doc } from "firebase/firestore"; 
+import { auth, db } from "../../firebase";
 import { validatePassword } from '../utils/validation';
 
 const SignupForm = () => {
@@ -12,6 +12,7 @@ const SignupForm = () => {
   const password = useSelector(state => state.signup.password);
 
   const [passwordError, setPasswordError] = useState('');
+  const [isSeller, setIsSeller] = useState(false);
 
   const handleUsernameChange = (e) => {
     dispatch({ type: 'SET_USERNAME', payload: e.target.value });
@@ -32,6 +33,10 @@ const SignupForm = () => {
     }
   };
 
+  const handleIsSellerChange = (e) => {
+    setIsSeller(e.target.checked);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validatePassword(password)) {
@@ -41,6 +46,12 @@ const SignupForm = () => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       console.log(userCredential);
+      
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        username: username,
+        email: email,
+        isSeller: isSeller,
+      });
     } catch (error) {
       console.error(error);
     }
@@ -60,6 +71,10 @@ const SignupForm = () => {
         <label>비밀번호:</label>
         <input type="password" value={password} onChange={handlePasswordChange} />
         {passwordError && <p style={{ color: 'red' }}>{passwordError}</p>}
+      </div>
+      <div>
+        <label>판매자 등록:</label>
+        <input type="checkbox" checked={isSeller} onChange={handleIsSellerChange} />
       </div>
       <button type="submit">회원가입</button>
     </form>
