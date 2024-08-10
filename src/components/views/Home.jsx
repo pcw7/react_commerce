@@ -23,6 +23,7 @@ import LogoutButton from './LogoutButton';
 
 function Home() {
     const isAuthenticated = useSelector(state => state.auth.isAuthenticated);
+    const isSeller = useSelector(state => state.auth.isSeller);
     return (
         <div className="w-full h-screen flex flex-col justify-start items-center">
             <Alert>
@@ -38,6 +39,12 @@ function Home() {
                 버튼을 눌러주세요.
                 </Button>
             </AlertDialogTrigger>
+
+            {isAuthenticated && (
+              <div>
+                <p>환영합니다! {isSeller ? '판매자' : '구매자'}로 로그인되었습니다.</p>
+              </div>
+            )}
 
             {/* <AlertDialogAction asChild>
                 <Link to="/signup" className="text-blue-500">회원가입</Link>            
@@ -55,9 +62,14 @@ function Home() {
                 </AlertDialogAction>
               </>
             ) : (
-              <AlertDialogAction asChild>
-                <LogoutButton />
-              </AlertDialogAction>
+              <>
+                <AlertDialogAction asChild>
+                  <LogoutButton />
+                </AlertDialogAction>
+                <AlertDialogAction asChild>
+                  <Link to="/mypage" className="text-blue-500">마이페이지</Link>
+                </AlertDialogAction>
+              </>
             )}
             
             <AlertDialogContent>

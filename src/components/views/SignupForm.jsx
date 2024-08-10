@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { setDoc, doc } from "firebase/firestore"; 
+import { setDoc, doc, runTransaction  } from "firebase/firestore"; 
 import { auth, db } from "../../firebase";
 import { validatePassword } from '../utils/validation';
 
@@ -46,8 +46,20 @@ const SignupForm = () => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       console.log(userCredential);
+
+      const userId = await runTransaction(db, async (transaction) => {
+        const counterRef = doc(db, 'Counters', 'userCounter');
+        const counterDoc = await transaction.get(counterRef);
+        if (!counterDoc.exists()) {
+          throw new Error('Counter document does not exist!');
+        }        
+        const newUserNumber = counterDoc.data().count + 1;
+        transaction.update(counterRef, { count: newUserNumber });
+        return newUserNumber;
+      });
       
-      await setDoc(doc(db, "users", userCredential.user.uid), {
+      await setDoc(doc(db, "User", userCredential.user.uid), {
+        userId,
         username: username,
         email: email,
         isSeller: isSeller,

@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../firebase";
+import { auth, db } from "../../firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 const LoginForm = () => {
   const dispatch = useDispatch();
@@ -24,6 +25,13 @@ const LoginForm = () => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       dispatch({ type: 'LOGIN_SUCCESS', payload: userCredential.user });
+
+      const userDoc = await getDoc(doc(db, "User", userCredential.user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        dispatch({ type: 'SET_USER_DATA', payload: userData });
+      }
+
       navigate('/');
     } catch (error) {
       setLoginError('Invalid email or password');

@@ -3,6 +3,7 @@ const initialState = {
     password: '',
     isAuthenticated: false,
     user: null,
+    isSeller: false,
     error: null
   };
   
@@ -16,6 +17,8 @@ const initialState = {
         return { ...state, isAuthenticated: true, user: action.payload, error: null };
       case 'LOGIN_FAILURE':
         return { ...state, isAuthenticated: false, error: action.payload };
+      case 'SET_USER_DATA':
+        return { ...state, isSeller: action.payload.isSeller };
       case 'LOGOUT':
         return { ...state, isAuthenticated: false, user: null, email: '', password: '', error: null };
       default:
