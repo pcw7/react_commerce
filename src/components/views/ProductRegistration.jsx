@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, storage } from '@/firebase';
+import { useSelector } from 'react-redux';
 import { collection, addDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
@@ -12,6 +13,8 @@ function ProductRegistration() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
+
+    const userId = useSelector((state) => state.auth.userId);
 
     const handleProductNameChange = (e) => {
         setProductName(e.target.value);
@@ -38,7 +41,7 @@ function ProductRegistration() {
         }
 
         setLoading(true);
-        try {            
+        try {
             const imageUrls = await Promise.all(
                 images.map(async (image) => {
                     const imageRef = ref(storage, `Product/${image.name}`);
@@ -46,15 +49,16 @@ function ProductRegistration() {
                     return await getDownloadURL(imageRef);
                 })
             );
-            
+
             await addDoc(collection(db, 'Product'), {
                 productName,
                 description,
                 productPrice,
                 imageUrls,
+                sellerId: userId,
                 createdAt: new Date(),
             });
-            
+
             navigate('/mypage');
         } catch (error) {
             console.error('Error uploading files or saving data:', error);
