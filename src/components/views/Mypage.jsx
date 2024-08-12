@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { db } from '@/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 
@@ -11,6 +11,7 @@ function Mypage() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (activeTab === 'products' && isSeller) {
@@ -19,7 +20,7 @@ function Mypage() {
                     const q = query(
                         collection(db, 'Product'),
                         where('sellerId', '==', userId),
-                        orderBy('createdAt', 'desc') // 최신순 정렬
+                        orderBy('createdAt', 'desc')
                     );
                     const querySnapshot = await getDocs(q);
                     const productList = querySnapshot.docs.map((doc) => ({
@@ -39,6 +40,10 @@ function Mypage() {
         }
     }, [activeTab, isSeller, userId]);
 
+    const handleProductClick = (productId) => {
+        navigate(`/product/${productId}`);
+    };
+
     const renderProfileTab = () => (
         <div>
             <p>안녕하세요, {isSeller ? '판매자' : '구매자'}님!</p>
@@ -56,9 +61,13 @@ function Mypage() {
             ) : products.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {products.map((product) => (
-                        <div key={product.id} className="border rounded-lg p-4 shadow-sm">
+                        <div
+                            key={product.id}
+                            className="border rounded-lg p-4 shadow-sm cursor-pointer"
+                            onClick={() => handleProductClick(product.productId)} // 클릭 시 상세 페이지로 이동
+                        >
                             <img
-                                src={product.imageUrls[0]} // 첫 번째 이미지 URL만 표시
+                                src={product.imageUrls[0]}
                                 alt={`${product.productName} 이미지`}
                                 className="w-full h-48 object-cover rounded-t-lg"
                             />
