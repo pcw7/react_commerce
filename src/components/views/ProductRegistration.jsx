@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db, storage } from '@/firebase';
 import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs, runTransaction } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { useSelector } from 'react-redux';
 
 function ProductRegistration() {
@@ -52,6 +52,30 @@ function ProductRegistration() {
         setImages(Array.from(e.target.files));
     };
 
+    const generateTimestamp = () => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+
+        return `${year}${month}${day}${hours}${minutes}${seconds}${milliseconds}`;
+    };
+
+    const deleteExistingImages = async () => {
+        try {
+            for (const url of existingImageUrls) {
+                const imageRef = ref(storage, url);
+                await deleteObject(imageRef);
+            }
+        } catch (error) {
+            console.error('기존 이미지를 삭제하는 중 오류가 발생했습니다:', error);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -60,9 +84,15 @@ function ProductRegistration() {
             let imageUrls = [...existingImageUrls];
 
             if (images.length > 0) {
+                // 새 이미지를 업로드하기 전에 기존 이미지를 삭제
+                await deleteExistingImages();
+
+                // 새 이미지를 업로드
                 imageUrls = await Promise.all(
                     images.map(async (image) => {
-                        const imageRef = ref(storage, `Product/${image.name}`);
+                        const timestamp = generateTimestamp();
+                        const uniqueImageName = `${image.name}_${timestamp}`; // 타임스탬프를 파일 이름에 추가
+                        const imageRef = ref(storage, `Product/${uniqueImageName}`);
                         await uploadBytes(imageRef, image);
                         return await getDownloadURL(imageRef);
                     })
