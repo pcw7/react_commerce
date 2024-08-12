@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { db } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
@@ -8,6 +8,7 @@ function ProductDetail() {
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const navigate = useNavigate();
 
     useEffect(() => {
         const fetchProduct = async () => {
@@ -33,6 +34,10 @@ function ProductDetail() {
 
         fetchProduct();
     }, [productId]);
+
+    const handleEditClick = () => {
+        navigate(`/product-registration/${productId}`);
+    };
 
     if (loading) {
         return <p>상품 정보를 불러오는 중...</p>;
@@ -73,6 +78,12 @@ function ProductDetail() {
                         <p className="text-red-500 text-2xl font-bold">{product.productPrice}원</p>
                     </div>
                 </div>
+                <button
+                    onClick={handleEditClick}
+                    className="mt-8 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                >
+                    물품 수정
+                </button>
             </div>
         </div>
     );

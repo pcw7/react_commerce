@@ -1,32 +1,52 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { db, storage } from '@/firebase';
-import { useSelector } from 'react-redux';
-import { collection, addDoc, doc, runTransaction } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs, runTransaction } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useSelector } from 'react-redux';
 
 function ProductRegistration() {
+    const { productId } = useParams();
     const [productName, setProductName] = useState('');
     const [description, setDescription] = useState('');
     const [productPrice, setProductPrice] = useState('');
     const [images, setImages] = useState([]);
+    const [existingImageUrls, setExistingImageUrls] = useState([]);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const userId = useSelector((state) => state.auth.userId);
 
-    const handleProductNameChange = (e) => {
-        setProductName(e.target.value);
-    };
+    // 기존 데이터 불러오기
+    useEffect(() => {
+        if (productId) {
+            const fetchProduct = async () => {
+                try {
+                    const q = query(
+                        collection(db, 'Product'),
+                        where('productId', '==', parseInt(productId))
+                    );
+                    const querySnapshot = await getDocs(q);
+                    if (!querySnapshot.empty) {
+                        const docSnap = querySnapshot.docs[0];
+                        const data = docSnap.data();
+                        setProductName(data.productName);
+                        setDescription(data.description);
+                        setProductPrice(data.productPrice);
+                        setExistingImageUrls(data.imageUrls || []);
+                    } else {
+                        setError('상품을 찾을 수 없습니다.');
+                    }
+                } catch (error) {
+                    console.error('Error fetching product:', error);
+                    setError('상품 정보를 불러오는 중 오류가 발생했습니다.');
+                }
+            };
 
-    const handleDescriptionChange = (e) => {
-        setDescription(e.target.value);
-    };
-
-    const handlePriceChange = (e) => {
-        setProductPrice(e.target.value);
-    };
+            fetchProduct();
+        }
+    }, [productId]);
 
     const handleImageChange = (e) => {
         setImages(Array.from(e.target.files));
@@ -34,50 +54,69 @@ function ProductRegistration() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-
-        if (description === '' || images.length === 0) {
-            setError('모든 필수 정보를 입력해주세요. 이미지 파일을 첨부해야 합니다.');
-            return;
-        }
-
         setLoading(true);
+
         try {
-            // 이미지 업로드
-            const imageUrls = await Promise.all(
-                images.map(async (image) => {
-                    const imageRef = ref(storage, `Product/${image.name}`);
-                    await uploadBytes(imageRef, image);
-                    return await getDownloadURL(imageRef);
-                })
-            );
+            let imageUrls = [...existingImageUrls];
 
-            // ProductId 가져오기 및 증가시키기
-            const productId = await runTransaction(db, async (transaction) => {
-                const counterRef = doc(db, 'Counters', 'productCounter');
-                const counterDoc = await transaction.get(counterRef);
-                if (!counterDoc.exists()) {
-                    throw new Error('Counter document does not exist!');
-                }
-                const newProductId = counterDoc.data().count + 1;
-                transaction.update(counterRef, { count: newProductId });
-                return newProductId;
-            });
+            if (images.length > 0) {
+                imageUrls = await Promise.all(
+                    images.map(async (image) => {
+                        const imageRef = ref(storage, `Product/${image.name}`);
+                        await uploadBytes(imageRef, image);
+                        return await getDownloadURL(imageRef);
+                    })
+                );
+            }
 
-            // Firestore에 상품 정보 저장
-            await addDoc(collection(db, 'Product'), {
-                productId, // 증가된 ProductId 저장
+            const productData = {
                 productName,
                 description,
                 productPrice,
                 imageUrls,
                 sellerId: userId,
-                createdAt: new Date(),
-            });
+            };
+
+            if (productId) {
+                // 기존 상품 수정
+                const q = query(
+                    collection(db, 'Product'),
+                    where('productId', '==', parseInt(productId))
+                );
+                const querySnapshot = await getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    const docRef = querySnapshot.docs[0].ref; // 문서 참조 가져오기
+                    await updateDoc(docRef, productData);
+                } else {
+                    setError('상품을 찾을 수 없습니다.');
+                    setLoading(false);
+                    return;
+                }
+            } else {
+                // 새로운 상품 등록
+                const newProductId = await runTransaction(db, async (transaction) => {
+                    const counterRef = doc(db, 'Counters', 'productCounter');
+                    const counterDoc = await transaction.get(counterRef);
+                    if (!counterDoc.exists()) {
+                        throw new Error('Counter document does not exist!');
+                    }
+                    const newProductId = counterDoc.data().count + 1;
+                    transaction.update(counterRef, { count: newProductId });
+                    return newProductId;
+                });
+
+                await addDoc(collection(db, 'Product'), {
+                    ...productData,
+                    productId: newProductId, // 새롭게 생성된 ProductId 추가
+                    createdAt: new Date(),
+                });
+            }
 
             navigate('/mypage');
         } catch (error) {
-            console.error('Error uploading files or saving data:', error);
-            setError('상품 등록 중 오류가 발생했습니다. 다시 시도해주세요.');
+            console.error('상품 등록 중 오류가 발생했습니다.', error);
+            setError('상품 등록 중 오류가 발생했습니다.');
         } finally {
             setLoading(false);
         }
@@ -86,7 +125,7 @@ function ProductRegistration() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100">
             <div className="bg-white p-10 rounded-lg shadow-md max-w-md w-full">
-                <h2 className="text-3xl font-semibold text-center mb-6">상품 등록</h2>
+                <h2 className="text-3xl font-semibold text-center mb-6">{productId ? '상품 수정' : '상품 등록'}</h2>
                 <form onSubmit={handleSubmit}>
                     <div className="mb-4">
                         <label htmlFor="productName" className="block text-gray-700 text-sm font-bold mb-2">
@@ -96,7 +135,7 @@ function ProductRegistration() {
                             id="productName"
                             type="text"
                             value={productName}
-                            onChange={handleProductNameChange}
+                            onChange={(e) => setProductName(e.target.value)}
                             required
                             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         />
@@ -108,7 +147,7 @@ function ProductRegistration() {
                         <textarea
                             id="description"
                             value={description}
-                            onChange={handleDescriptionChange}
+                            onChange={(e) => setDescription(e.target.value)}
                             required
                             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         />
@@ -121,7 +160,7 @@ function ProductRegistration() {
                             id="price"
                             type="number"
                             value={productPrice}
-                            onChange={handlePriceChange}
+                            onChange={(e) => setProductPrice(e.target.value)}
                             required
                             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         />
@@ -135,9 +174,18 @@ function ProductRegistration() {
                             type="file"
                             multiple
                             onChange={handleImageChange}
-                            required
                             className="mt-2"
                         />
+                        {existingImageUrls.length > 0 && (
+                            <div className="mt-4">
+                                <p className="text-gray-700 text-sm font-bold mb-2">기존 이미지:</p>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {existingImageUrls.map((url, index) => (
+                                        <img key={index} src={url} alt={`기존 이미지 ${index + 1}`} className="w-full h-24 object-cover rounded-lg" />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                     {error && <p className="text-red-500 text-xs italic mt-2">{error}</p>}
                     <button
@@ -145,7 +193,7 @@ function ProductRegistration() {
                         className="bg-orange-500 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
                         disabled={loading}
                     >
-                        {loading ? '등록 중...' : '상품 등록'}
+                        {loading ? '등록 중...' : productId ? '상품 수정' : '상품 등록'}
                     </button>
                 </form>
             </div>
