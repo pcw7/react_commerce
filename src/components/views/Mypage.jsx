@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { db } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 
 function Mypage() {
     const isSeller = useSelector(state => state.auth.isSeller);
@@ -16,7 +16,11 @@ function Mypage() {
         if (activeTab === 'products' && isSeller) {
             const fetchProducts = async () => {
                 try {
-                    const q = query(collection(db, 'Product'), where('sellerId', '==', userId));
+                    const q = query(
+                        collection(db, 'Product'),
+                        where('sellerId', '==', userId),
+                        orderBy('createdAt', 'desc') // 최신순 정렬
+                    );
                     const querySnapshot = await getDocs(q);
                     const productList = querySnapshot.docs.map((doc) => ({
                         id: doc.id,
@@ -112,4 +116,3 @@ function Mypage() {
 }
 
 export default Mypage;
-
