@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { db } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db, storage } from '@/firebase';
+import { collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { ref, deleteObject } from 'firebase/storage';
 
 function ProductDetail() {
     const { productId } = useParams();
@@ -37,6 +38,48 @@ function ProductDetail() {
 
     const handleEditClick = () => {
         navigate(`/product-registration/${productId}`);
+    };
+
+    const handleDeleteClick = async () => {
+        if (!product) return;
+
+        const confirmed = window.confirm('정말 이 상품을 삭제하시겠습니까?');
+        if (!confirmed) return;
+
+        try {
+            setLoading(true);
+
+            // 1. 이미지 삭제
+            if (product.imageUrls && product.imageUrls.length > 0) {
+                const deletePromises = product.imageUrls.map((url) => {
+                    const imageRef = ref(storage, url);
+                    return deleteObject(imageRef);
+                });
+                await Promise.all(deletePromises);
+            }
+
+            // 2. Firestore 문서 삭제
+            const q = query(
+                collection(db, 'Product'),
+                where('productId', '==', parseInt(productId))
+            );
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                const docRef = querySnapshot.docs[0].ref;
+                await deleteDoc(docRef);
+            } else {
+                setError('상품을 찾을 수 없습니다.');
+                setLoading(false);
+                return;
+            }
+
+            navigate('/mypage');
+        } catch (err) {
+            console.error('상품 삭제 중 오류가 발생했습니다.', err);
+            setError('상품 삭제 중 오류가 발생했습니다.');
+        } finally {
+            setLoading(false);
+        }
     };
 
     if (loading) {
@@ -78,12 +121,21 @@ function ProductDetail() {
                         <p className="text-red-500 text-2xl font-bold">{product.productPrice}원</p>
                     </div>
                 </div>
-                <button
-                    onClick={handleEditClick}
-                    className="mt-8 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                >
-                    물품 수정
-                </button>
+                <div className="flex space-x-4 mt-8">
+                    <button
+                        onClick={handleEditClick}
+                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                    >
+                        물품 수정
+                    </button>
+                    <button
+                        onClick={handleDeleteClick}
+                        className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+                        disabled={loading}
+                    >
+                        {loading ? '삭제 중...' : '물품 삭제'}
+                    </button>
+                </div>
             </div>
         </div>
     );
