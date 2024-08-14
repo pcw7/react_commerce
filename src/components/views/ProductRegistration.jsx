@@ -11,6 +11,7 @@ function ProductRegistration() {
     const [description, setDescription] = useState('');
     const [productPrice, setProductPrice] = useState('');
     const [productQunatity, setProductQunatity] = useState('');
+    const [productCategory, setProductCategory] = useState('');
     const [images, setImages] = useState([]);
     const [existingImageUrls, setExistingImageUrls] = useState([]);
     const [error, setError] = useState('');
@@ -18,6 +19,7 @@ function ProductRegistration() {
     const navigate = useNavigate();
 
     const userId = useSelector((state) => state.auth.userId);
+    const categories = ['음식', '옷'];
 
     // 기존 데이터 불러오기
     useEffect(() => {
@@ -35,7 +37,8 @@ function ProductRegistration() {
                         setProductName(data.productName);
                         setDescription(data.description);
                         setProductPrice(data.productPrice);
-                        setProductQunatity(data.productQunatity)
+                        setProductQunatity(data.productQunatity);
+                        setProductCategory(data.productCategory);
                         setExistingImageUrls(data.imageUrls || []);
                     } else {
                         setError('상품을 찾을 수 없습니다.');
@@ -106,6 +109,7 @@ function ProductRegistration() {
                 description,
                 productPrice,
                 productQunatity,
+                productCategory,
                 imageUrls,
                 sellerId: userId,
             };
@@ -210,6 +214,23 @@ function ProductRegistration() {
                             required
                             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         />
+                    </div>
+                    <div className="mb-4">
+                        <label htmlFor="category" className="block text-gray-700 text-sm font-bold mb-2">
+                            상품 카테고리:
+                        </label>
+                        <select
+                            id="category"
+                            value={productCategory}
+                            onChange={(e) => setProductCategory(e.target.value)}
+                            required
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        >
+                            <option value="">카테고리를 선택하세요</option>
+                            {categories.map((category, index) => (
+                                <option key={index} value={category}>{category}</option>
+                            ))}
+                        </select>
                     </div>
                     <div className="mb-4">
                         <label htmlFor="images" className="block text-gray-700 text-sm font-bold mb-2">

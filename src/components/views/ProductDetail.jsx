@@ -119,7 +119,8 @@ function ProductDetail() {
                     <div>
                         <p className="text-xl font-semibold mb-4">{product.description}</p>
                         <p className="text-red-500 text-2xl font-bold">{product.productPrice}원</p>
-                        <p className="text-gray-700 text-lg font-semibold mt-2">수량: {product.productQunatity}</p> {/* 수량 표시 추가 */}
+                        <p className="text-gray-700 text-lg font-semibold mt-2">수량: {product.productQunatity}</p>
+                        <p className="text-gray-700 text-lg font-semibold mt-2">카테고리: {product.productCategory}</p>
                     </div>
                 </div>
                 <div className="flex space-x-4 mt-8">
