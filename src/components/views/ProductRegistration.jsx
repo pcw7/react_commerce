@@ -10,6 +10,7 @@ function ProductRegistration() {
     const [productName, setProductName] = useState('');
     const [description, setDescription] = useState('');
     const [productPrice, setProductPrice] = useState('');
+    const [productQunatity, setProductQunatity] = useState('');
     const [images, setImages] = useState([]);
     const [existingImageUrls, setExistingImageUrls] = useState([]);
     const [error, setError] = useState('');
@@ -34,6 +35,7 @@ function ProductRegistration() {
                         setProductName(data.productName);
                         setDescription(data.description);
                         setProductPrice(data.productPrice);
+                        setProductQunatity(data.productQunatity)
                         setExistingImageUrls(data.imageUrls || []);
                     } else {
                         setError('상품을 찾을 수 없습니다.');
@@ -103,6 +105,7 @@ function ProductRegistration() {
                 productName,
                 description,
                 productPrice,
+                productQunatity,
                 imageUrls,
                 sellerId: userId,
             };
@@ -191,6 +194,19 @@ function ProductRegistration() {
                             type="number"
                             value={productPrice}
                             onChange={(e) => setProductPrice(e.target.value)}
+                            required
+                            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                        />
+                    </div>
+                    <div className="mb-4">
+                        <label htmlFor="qunatity" className="block text-gray-700 text-sm font-bold mb-2">
+                            상품 갯수:
+                        </label>
+                        <input
+                            id="qunatity"
+                            type="number"
+                            value={productQunatity}
+                            onChange={(e) => setProductQunatity(e.target.value)}
                             required
                             className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                         />
