@@ -1,21 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '@/firebase';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';  // 여기서 query를 추가로 임포트
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 
 function AllProductsPage() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('전체');
     const navigate = useNavigate();
 
     useEffect(() => {
         const fetchProducts = async () => {
+            setLoading(true);
             try {
-                const q = query(
-                    collection(db, 'Product'),
-                    orderBy('createdAt', 'desc')
-                );
+                let q;
+                if (selectedCategory === '전체') {
+                    q = query(
+                        collection(db, 'Product'),
+                        orderBy('createdAt', 'desc')
+                    );
+                } else {
+                    q = query(
+                        collection(db, 'Product'),
+                        where('productCategory', '==', selectedCategory),
+                        orderBy('createdAt', 'desc')
+                    );
+                }
                 const querySnapshot = await getDocs(q);
                 const productList = querySnapshot.docs.map((doc) => ({
                     id: doc.id,
@@ -31,16 +42,35 @@ function AllProductsPage() {
         };
 
         fetchProducts();
-    }, []);
+    }, [selectedCategory]);  // 선택된 카테고리가 변경될 때마다 실행
 
     const handleProductClick = (productId) => {
         navigate(`/product/${productId}`);
+    };
+
+    const handleCategoryChange = (event) => {
+        setSelectedCategory(event.target.value);  // 선택된 카테고리 업데이트
     };
 
     return (
         <div className="min-h-screen bg-gray-100">
             <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-bold text-gray-900">전체 물품 목록</h1>
+
+                {/* 카테고리 선택 */}
+                <div className="mb-4">
+                    <select
+                        value={selectedCategory}
+                        onChange={handleCategoryChange}
+                        className="p-2 border border-gray-300 rounded"
+                    >
+                        <option value="전체">전체</option>
+                        <option value="음식">음식</option>
+                        <option value="옷">옷</option>
+                        {/* 다른 카테고리들도 추가 가능 */}
+                    </select>
+                </div>
+
                 {loading ? (
                     <p>상품을 불러오는 중...</p>
                 ) : error ? (
