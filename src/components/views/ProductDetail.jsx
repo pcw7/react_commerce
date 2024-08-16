@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import { db } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
+import Navbar from './Navbar';
 
 function ProductDetail() {
     const { productId } = useParams();
@@ -120,6 +121,7 @@ function ProductDetail() {
 
     return (
         <div className="min-h-screen bg-gray-100">
+            <Navbar />
             <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-bold text-gray-900">{product.productName}</h1>
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '@/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import Navbar from './Navbar';
 
 function Mypage() {
     const isSeller = useSelector(state => state.auth.isSeller);
@@ -85,6 +86,7 @@ function Mypage() {
 
     return (
         <div className="min-h-screen bg-gray-100">
+            <Navbar />
             <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-bold text-gray-900">마이페이지</h1>
                 <div className="tabs mt-6">
