@@ -55,24 +55,26 @@ function AllProductsPage() {
 
     return (
         <div className="min-h-screen bg-gray-100">
-            {/* Navbar 컴포넌트를 상단에 추가 */}
             <Navbar />
-
             <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
-                <h1 className="text-3xl font-bold text-gray-900">전체 물품 목록</h1>
+                <div className="text-center mb-4">
+                    <h1 className="text-3xl font-bold text-gray-900">전체 물품 목록</h1>
+                </div>
 
-                {/* 카테고리 선택 */}
-                <div className="mb-4">
-                    <select
-                        value={selectedCategory}
-                        onChange={handleCategoryChange}
-                        className="p-2 border border-gray-300 rounded"
-                    >
-                        <option value="전체">전체</option>
-                        <option value="음식">음식</option>
-                        <option value="옷">옷</option>
-                        {/* 다른 카테고리들도 추가 가능 */}
-                    </select>
+                {/* 카테고리 선택 섹션 */}
+                <div className="flex items-center mb-6">
+                    <div className="w-auto">
+                        <select
+                            value={selectedCategory}
+                            onChange={handleCategoryChange}
+                            className="p-2 border border-gray-300 rounded w-auto"
+                        >
+                            <option value="전체">전체</option>
+                            <option value="음식">음식</option>
+                            <option value="옷">옷</option>
+                            {/* 다른 카테고리들도 추가 가능 */}
+                        </select>
+                    </div>
                 </div>
 
                 {loading ? (
