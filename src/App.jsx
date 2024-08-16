@@ -7,6 +7,7 @@ import LoginForm from './components/views/LoginForm';
 import Mypage from './components/views/Mypage';
 import ProductRegistration from './components/views/ProductRegistration';
 import ProductDetail from './components/views/ProductDetail';
+import AllProductsPage from './components/views/AllProductsPage';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/product-registration" element={<ProductRegistration />} />
         <Route path="/product-registration/:productId" element={<ProductRegistration />} />
         <Route path="/product/:productId" element={<ProductDetail />} />
+        <Route path="/all-products" element={<AllProductsPage />} />
       </Routes>
     </Router>
   );
