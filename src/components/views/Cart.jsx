@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/firebase';
 
 function Cart({ isOpen, onClose }) {
@@ -16,7 +16,7 @@ function Cart({ isOpen, onClose }) {
                     where('userId', '==', userId)
                 );
                 const cartSnapshot = await getDocs(cartQuery);
-                const cartItemsData = cartSnapshot.docs.map(doc => doc.data());
+                const cartItemsData = cartSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
                 // 2. 각 CartHistory 아이템에 대해 Product 컬렉션에서 상세 정보 가져오기
                 const productPromises = cartItemsData.map(async (cartItem) => {
@@ -47,6 +47,50 @@ function Cart({ isOpen, onClose }) {
         fetchCartItemsWithDetails();
     }, [isOpen, userId]);
 
+    const handleQuantityChange = async (itemId, newQuantity) => {
+        if (newQuantity < 1) return;  // 수량이 1보다 작아지지 않도록
+
+        try {
+            // Firestore에서 수량 업데이트
+            const itemRef = collection(db, 'CartHistory');
+            const itemDoc = query(itemRef, where('userId', '==', userId), where('productId', '==', itemId));
+            const querySnapshot = await getDocs(itemDoc);
+            if (!querySnapshot.empty) {
+                const docRef = querySnapshot.docs[0].ref;
+                await updateDoc(docRef, { qunatity: newQuantity });
+
+                // 로컬 상태 업데이트
+                setCartItems((prevItems) =>
+                    prevItems.map((item) =>
+                        item.productId === itemId ? { ...item, qunatity: newQuantity } : item
+                    )
+                );
+            }
+        } catch (error) {
+            console.error('수량 업데이트 중 오류가 발생했습니다.', error);
+        }
+    };
+
+    const handleRemoveItem = async (itemId) => {
+        try {
+            // Firestore에서 해당 항목 삭제
+            const itemRef = collection(db, 'CartHistory');
+            const itemDoc = query(itemRef, where('userId', '==', userId), where('productId', '==', itemId));
+            const querySnapshot = await getDocs(itemDoc);
+            if (!querySnapshot.empty) {
+                const docRef = querySnapshot.docs[0].ref;
+                await deleteDoc(docRef);
+
+                // 로컬 상태에서 아이템 제거
+                setCartItems((prevItems) =>
+                    prevItems.filter((item) => item.productId !== itemId)
+                );
+            }
+        } catch (error) {
+            console.error('장바구니 항목 삭제 중 오류가 발생했습니다.', error);
+        }
+    };
+
     return (
         <div className={`fixed top-0 right-0 h-full w-64 bg-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform duration-300 ease-in-out`}>
             <div className="p-4">
@@ -56,11 +100,32 @@ function Cart({ isOpen, onClose }) {
                     {cartItems.map((item, index) => (
                         <li key={index} className="py-2 flex items-center">
                             <img src={item.imageUrl} alt={item.productName} className="w-12 h-12 object-cover rounded mr-4" />
-                            <div>
+                            <div className="flex-grow">
                                 <p>{item.productName}</p>
-                                <p>수량: {item.qunatity}</p>
+                                <div className="flex items-center">
+                                    <button
+                                        onClick={() => handleQuantityChange(item.productId, item.qunatity - 1)}
+                                        className="px-2 py-1 bg-gray-300 text-gray-700 rounded"
+                                    >
+                                        -
+                                    </button>
+                                    <p className="mx-2">{item.qunatity}</p>
+                                    <button
+                                        onClick={() => handleQuantityChange(item.productId, item.qunatity + 1)}
+                                        className="px-2 py-1 bg-gray-300 text-gray-700 rounded"
+                                    >
+                                        +
+                                    </button>
+                                </div>
                                 <p>{item.productPrice}원</p>
                             </div>
+                            {/* 삭제 버튼 */}
+                            <button
+                                onClick={() => handleRemoveItem(item.productId)}
+                                className="ml-4 px-2 py-1 bg-red-500 text-white rounded"
+                            >
+                                삭제
+                            </button>
                         </li>
                     ))}
                 </ul>
