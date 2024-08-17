@@ -5,6 +5,7 @@ import { db, storage } from '@/firebase';
 import { collection, query, where, getDocs, deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import Navbar from './Navbar';
+import Cart from './Cart';
 
 function ProductDetail() {
     const { productId } = useParams();
@@ -14,6 +15,10 @@ function ProductDetail() {
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [isInCart, setIsInCart] = useState(false);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const openDrawer = () => setIsDrawerOpen(true);
+    const closeDrawer = () => setIsDrawerOpen(false);
 
     useEffect(() => {
         const fetchProduct = async () => {
@@ -28,6 +33,16 @@ function ProductDetail() {
                     const productData = docSnap.data();
                     setProduct(productData);
                     fetchRelatedProducts(productData.productCategory);  // 같은 카테고리의 상품들을 불러옴
+
+                    const cartQuery = query(
+                        collection(db, 'CartHistory'),
+                        where('userId', '==', userId),
+                        where('productId', '==', parseInt(productId))
+                    );
+                    const cartSnapshot = await getDocs(cartQuery);
+                    if (!cartSnapshot.empty) {
+                        setIsInCart(true);  // 이미 장바구니에 있으면 true로 설정
+                    }
                 } else {
                     setError('상품을 찾을 수 없습니다.');
                 }
@@ -174,15 +189,25 @@ function ProductDetail() {
                         <p className="text-red-500 text-2xl font-bold">{product.productPrice}원</p>
                         <p className="text-gray-700 text-lg font-semibold mt-2">수량: {product.productQunatity}</p>
                         <p className="text-gray-700 text-lg font-semibold mt-2">카테고리: {product.productCategory}</p>
-                        {/* 장바구니 추가 버튼 */}
-                        <button
-                            onClick={handleAddToCart}
-                            className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4 focus:outline-none focus:shadow-outline"
-                        >
-                            장바구니 추가
-                        </button>
+
+                        {isInCart ? (
+                            <button
+                                onClick={openDrawer}
+                                className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4 focus:outline-none focus:shadow-outline"
+                            >
+                                장바구니 보기
+                            </button>
+                        ) : (
+                            <button
+                                onClick={handleAddToCart}
+                                className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4 focus:outline-none focus:shadow-outline"
+                            >
+                                장바구니 추가
+                            </button>
+                        )}
                     </div>
                 </div>
+                <Cart isOpen={isDrawerOpen} onClose={closeDrawer} />
 
                 {/* 판매자와 로그인한 사용자가 같을 때만 수정/삭제 버튼 표시 */}
                 {product.sellerId === userId && (
