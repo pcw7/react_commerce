@@ -142,6 +142,7 @@ function ProductDetail() {
                     qunatity: 1,
                 });
                 alert('장바구니에 추가되었습니다.');
+                setIsInCart(true);
             }
         } catch (error) {
             console.error('장바구니에 추가하는 중 오류가 발생했습니다.', error);
