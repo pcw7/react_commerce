@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { db, storage } from '@/firebase';
-import { collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import Navbar from './Navbar';
 
@@ -20,7 +20,7 @@ function ProductDetail() {
             try {
                 const q = query(
                     collection(db, 'Product'),
-                    where('productId', '==', parseInt(productId))
+                    where('productId', '==', parseInt(productId))  // 여기서 productId를 정수로 변환
                 );
                 const querySnapshot = await getDocs(q);
                 if (!querySnapshot.empty) {
@@ -44,7 +44,7 @@ function ProductDetail() {
                 const q = query(
                     collection(db, 'Product'),
                     where('productCategory', '==', category),
-                    where('productId', '!=', parseInt(productId))  // 현재 상품 제외
+                    where('productId', '!=', parseInt(productId))  // 여기서 productId를 정수로 변환
                 );
                 const querySnapshot = await getDocs(q);
                 const relatedProductList = querySnapshot.docs.map((doc) => ({
@@ -86,7 +86,7 @@ function ProductDetail() {
             // 2. Firestore 문서 삭제
             const q = query(
                 collection(db, 'Product'),
-                where('productId', '==', parseInt(productId))
+                where('productId', '==', parseInt(productId))  // 여기서 productId를 정수로 변환
             );
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
@@ -104,6 +104,33 @@ function ProductDetail() {
             setError('상품 삭제 중 오류가 발생했습니다.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleAddToCart = async () => {
+        if (!userId || !productId) return;
+
+        try {
+            // CartHistory 컬렉션에서 해당 유저와 상품이 있는지 확인
+            const cartRef = collection(db, 'CartHistory');
+            const q = query(cartRef, where('userId', '==', userId), where('productId', '==', parseInt(productId)));  // 여기서 productId를 정수로 변환
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                // 이미 장바구니에 존재하는 경우
+                alert('장바구니에 이미 있습니다.');
+            } else {
+                // 존재하지 않는 경우 새로 추가
+                await addDoc(cartRef, {
+                    userId,
+                    productId: parseInt(productId),
+                    qunatity: 1,
+                });
+                alert('장바구니에 추가되었습니다.');
+            }
+        } catch (error) {
+            console.error('장바구니에 추가하는 중 오류가 발생했습니다.', error);
+            setError('장바구니에 추가하는 중 오류가 발생했습니다.');
         }
     };
 
@@ -147,6 +174,13 @@ function ProductDetail() {
                         <p className="text-red-500 text-2xl font-bold">{product.productPrice}원</p>
                         <p className="text-gray-700 text-lg font-semibold mt-2">수량: {product.productQunatity}</p>
                         <p className="text-gray-700 text-lg font-semibold mt-2">카테고리: {product.productCategory}</p>
+                        {/* 장바구니 추가 버튼 */}
+                        <button
+                            onClick={handleAddToCart}
+                            className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mt-4 focus:outline-none focus:shadow-outline"
+                        >
+                            장바구니 추가
+                        </button>
                     </div>
                 </div>
 
