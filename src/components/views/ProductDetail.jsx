@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { db, storage } from '@/firebase';
-import { collection, query, where, getDocs, deleteDoc, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, deleteDoc, addDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import Navbar from './Navbar';
 import Cart from './Cart';
@@ -10,29 +10,27 @@ import Cart from './Cart';
 function ProductDetail() {
     const { productId } = useParams();
     const navigate = useNavigate();
-    const userId = useSelector((state) => state.auth.userId); // 현재 로그인한 사용자 ID 가져오기
+    const userId = useSelector((state) => state.auth.userId);
     const [product, setProduct] = useState(null);
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [isInCart, setIsInCart] = useState(false);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
     const openDrawer = () => setIsDrawerOpen(true);
     const closeDrawer = () => setIsDrawerOpen(false);
 
     useEffect(() => {
         const fetchProduct = async () => {
             try {
-                const q = query(
-                    collection(db, 'Product'),
-                    where('productId', '==', parseInt(productId))  // 여기서 productId를 정수로 변환
-                );
+                const q = query(collection(db, 'Product'), where('productId', '==', parseInt(productId)));
                 const querySnapshot = await getDocs(q);
                 if (!querySnapshot.empty) {
                     const docSnap = querySnapshot.docs[0];
                     const productData = docSnap.data();
                     setProduct(productData);
-                    fetchRelatedProducts(productData.productCategory);  // 같은 카테고리의 상품들을 불러옴
+                    fetchRelatedProducts(productData.productCategory);
 
                     const cartQuery = query(
                         collection(db, 'CartHistory'),
@@ -41,7 +39,7 @@ function ProductDetail() {
                     );
                     const cartSnapshot = await getDocs(cartQuery);
                     if (!cartSnapshot.empty) {
-                        setIsInCart(true);  // 이미 장바구니에 있으면 true로 설정
+                        setIsInCart(true);
                     }
                 } else {
                     setError('상품을 찾을 수 없습니다.');
@@ -59,7 +57,7 @@ function ProductDetail() {
                 const q = query(
                     collection(db, 'Product'),
                     where('productCategory', '==', category),
-                    where('productId', '!=', parseInt(productId))  // 여기서 productId를 정수로 변환
+                    where('productId', '!=', parseInt(productId))
                 );
                 const querySnapshot = await getDocs(q);
                 const relatedProductList = querySnapshot.docs.map((doc) => ({
@@ -74,7 +72,7 @@ function ProductDetail() {
         };
 
         fetchProduct();
-    }, [productId]);
+    }, [productId, userId]);
 
     const handleEditClick = () => {
         navigate(`/product-registration/${productId}`);
@@ -89,24 +87,19 @@ function ProductDetail() {
         try {
             setLoading(true);
 
-            // 1. 이미지 삭제
             if (product.imageUrls && product.imageUrls.length > 0) {
                 const deletePromises = product.imageUrls.map((url) => {
-                    const imageRef = ref(storage, url);  // Firebase Storage 참조를 사용하여 이미지 삭제
+                    const imageRef = ref(storage, url);
                     return deleteObject(imageRef);
                 });
                 await Promise.all(deletePromises);
             }
 
-            // 2. Firestore 문서 삭제
-            const q = query(
-                collection(db, 'Product'),
-                where('productId', '==', parseInt(productId))  // 여기서 productId를 정수로 변환
-            );
+            const q = query(collection(db, 'Product'), where('productId', '==', parseInt(productId)));
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
                 const docRef = querySnapshot.docs[0].ref;
-                await deleteDoc(docRef);  // Firestore에서 문서 삭제
+                await deleteDoc(docRef);
             } else {
                 setError('상품을 찾을 수 없습니다.');
                 setLoading(false);
@@ -126,16 +119,13 @@ function ProductDetail() {
         if (!userId || !productId) return;
 
         try {
-            // CartHistory 컬렉션에서 해당 유저와 상품이 있는지 확인
             const cartRef = collection(db, 'CartHistory');
-            const q = query(cartRef, where('userId', '==', userId), where('productId', '==', parseInt(productId)));  // 여기서 productId를 정수로 변환
+            const q = query(cartRef, where('userId', '==', userId), where('productId', '==', parseInt(productId)));
             const querySnapshot = await getDocs(q);
 
             if (!querySnapshot.empty) {
-                // 이미 장바구니에 존재하는 경우
                 alert('장바구니에 이미 있습니다.');
             } else {
-                // 존재하지 않는 경우 새로 추가
                 await addDoc(cartRef, {
                     userId,
                     productId: parseInt(productId),
@@ -147,6 +137,12 @@ function ProductDetail() {
         } catch (error) {
             console.error('장바구니에 추가하는 중 오류가 발생했습니다.', error);
             setError('장바구니에 추가하는 중 오류가 발생했습니다.');
+        }
+    };
+
+    const handleItemRemoved = (removedProductId) => {
+        if (parseInt(productId) === removedProductId) {
+            setIsInCart(false);
         }
     };
 
@@ -170,7 +166,7 @@ function ProductDetail() {
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <img
-                            src={product.imageUrls[0]}  // 메인 이미지
+                            src={product.imageUrls[0]}
                             alt={`${product.productName} 이미지`}
                             className="w-full h-96 object-cover rounded-lg"
                         />
@@ -208,9 +204,8 @@ function ProductDetail() {
                         )}
                     </div>
                 </div>
-                <Cart isOpen={isDrawerOpen} onClose={closeDrawer} />
+                <Cart isOpen={isDrawerOpen} onClose={closeDrawer} onItemRemoved={handleItemRemoved} />
 
-                {/* 판매자와 로그인한 사용자가 같을 때만 수정/삭제 버튼 표시 */}
                 {product.sellerId === userId && (
                     <div className="flex space-x-4 mt-8">
                         <button
@@ -229,7 +224,6 @@ function ProductDetail() {
                     </div>
                 )}
 
-                {/* 같은 카테고리의 상품들 표시 */}
                 <div className="mt-12">
                     <h2 className="text-2xl font-bold text-gray-900 mb-4">같은 카테고리의 상품들</h2>
                     {relatedProducts.length > 0 ? (

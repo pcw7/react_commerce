@@ -3,27 +3,22 @@ import { useSelector } from 'react-redux';
 import { collection, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/firebase';
 
-function Cart({ isOpen, onClose }) {
+function Cart({ isOpen, onClose, onItemRemoved }) {
     const [cartItems, setCartItems] = useState([]);
     const userId = useSelector((state) => state.auth.userId);
 
     useEffect(() => {
         const fetchCartItemsWithDetails = async () => {
             if (isOpen) {
-                // 1. CartHistory에서 사용자 장바구니 아이템을 가져오기
-                const cartQuery = query(
-                    collection(db, 'CartHistory'),
-                    where('userId', '==', userId)
-                );
+                const cartQuery = query(collection(db, 'CartHistory'), where('userId', '==', userId));
                 const cartSnapshot = await getDocs(cartQuery);
-                const cartItemsData = cartSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const cartItemsData = cartSnapshot.docs.map((doc) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                }));
 
-                // 2. 각 CartHistory 아이템에 대해 Product 컬렉션에서 상세 정보 가져오기
                 const productPromises = cartItemsData.map(async (cartItem) => {
-                    const productQuery = query(
-                        collection(db, 'Product'),
-                        where('productId', '==', cartItem.productId)
-                    );
+                    const productQuery = query(collection(db, 'Product'), where('productId', '==', cartItem.productId));
                     const productSnapshot = await getDocs(productQuery);
                     if (!productSnapshot.empty) {
                         const productData = productSnapshot.docs[0].data();
@@ -31,14 +26,13 @@ function Cart({ isOpen, onClose }) {
                             ...cartItem,
                             productName: productData.productName,
                             productPrice: productData.productPrice,
-                            imageUrl: productData.imageUrls[0]  // 첫 번째 이미지만 사용
+                            imageUrl: productData.imageUrls[0],
                         };
                     } else {
-                        return cartItem;  // 상품 정보가 없으면 그대로 반환
+                        return cartItem;
                     }
                 });
 
-                // 3. 모든 Promise가 완료될 때까지 기다리고, cartItems에 설정
                 const detailedCartItems = await Promise.all(productPromises);
                 setCartItems(detailedCartItems);
             }
@@ -48,10 +42,9 @@ function Cart({ isOpen, onClose }) {
     }, [isOpen, userId]);
 
     const handleQuantityChange = async (itemId, newQuantity) => {
-        if (newQuantity < 1) return;  // 수량이 1보다 작아지지 않도록
+        if (newQuantity < 1) return;
 
         try {
-            // Firestore에서 수량 업데이트
             const itemRef = collection(db, 'CartHistory');
             const itemDoc = query(itemRef, where('userId', '==', userId), where('productId', '==', itemId));
             const querySnapshot = await getDocs(itemDoc);
@@ -59,7 +52,6 @@ function Cart({ isOpen, onClose }) {
                 const docRef = querySnapshot.docs[0].ref;
                 await updateDoc(docRef, { qunatity: newQuantity });
 
-                // 로컬 상태 업데이트
                 setCartItems((prevItems) =>
                     prevItems.map((item) =>
                         item.productId === itemId ? { ...item, qunatity: newQuantity } : item
@@ -73,7 +65,6 @@ function Cart({ isOpen, onClose }) {
 
     const handleRemoveItem = async (itemId) => {
         try {
-            // Firestore에서 해당 항목 삭제
             const itemRef = collection(db, 'CartHistory');
             const itemDoc = query(itemRef, where('userId', '==', userId), where('productId', '==', itemId));
             const querySnapshot = await getDocs(itemDoc);
@@ -81,10 +72,11 @@ function Cart({ isOpen, onClose }) {
                 const docRef = querySnapshot.docs[0].ref;
                 await deleteDoc(docRef);
 
-                // 로컬 상태에서 아이템 제거
-                setCartItems((prevItems) =>
-                    prevItems.filter((item) => item.productId !== itemId)
-                );
+                setCartItems((prevItems) => prevItems.filter((item) => item.productId !== itemId));
+
+                if (onItemRemoved) {
+                    onItemRemoved(itemId); // onItemRemoved 콜백 호출
+                }
             }
         } catch (error) {
             console.error('장바구니 항목 삭제 중 오류가 발생했습니다.', error);
@@ -92,9 +84,14 @@ function Cart({ isOpen, onClose }) {
     };
 
     return (
-        <div className={`fixed top-0 right-0 h-full w-64 bg-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform duration-300 ease-in-out`}>
+        <div
+            className={`fixed top-0 right-0 h-full w-64 bg-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'
+                } transition-transform duration-300 ease-in-out`}
+        >
             <div className="p-4">
-                <button onClick={onClose} className="text-gray-600 hover:text-gray-800">닫기</button>
+                <button onClick={onClose} className="text-gray-600 hover:text-gray-800">
+                    닫기
+                </button>
                 <h2 className="text-2xl font-bold mb-4">장바구니</h2>
                 <ul className="divide-y divide-gray-200">
                     {cartItems.map((item, index) => (
@@ -119,7 +116,6 @@ function Cart({ isOpen, onClose }) {
                                 </div>
                                 <p>{item.productPrice}원</p>
                             </div>
-                            {/* 삭제 버튼 */}
                             <button
                                 onClick={() => handleRemoveItem(item.productId)}
                                 className="ml-4 px-2 py-1 bg-red-500 text-white rounded"
@@ -129,8 +125,9 @@ function Cart({ isOpen, onClose }) {
                         </li>
                     ))}
                 </ul>
-                {/* 총 가격 계산 로직 */}
-                <p className="font-semibold text-lg mt-4">총 가격: {cartItems.reduce((acc, item) => acc + item.productPrice * item.qunatity, 0)}원</p>
+                <p className="font-semibold text-lg mt-4">
+                    총 가격: {cartItems.reduce((acc, item) => acc + item.productPrice * item.qunatity, 0)}원
+                </p>
             </div>
         </div>
     );
