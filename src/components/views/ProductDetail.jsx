@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { db } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db, storage } from '@/firebase';
+import { collection, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import Navbar from './Navbar';
 
@@ -77,7 +77,7 @@ function ProductDetail() {
             // 1. 이미지 삭제
             if (product.imageUrls && product.imageUrls.length > 0) {
                 const deletePromises = product.imageUrls.map((url) => {
-                    const imageRef = ref(storage, url);
+                    const imageRef = ref(storage, url);  // Firebase Storage 참조를 사용하여 이미지 삭제
                     return deleteObject(imageRef);
                 });
                 await Promise.all(deletePromises);
@@ -91,7 +91,7 @@ function ProductDetail() {
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
                 const docRef = querySnapshot.docs[0].ref;
-                await deleteDoc(docRef);
+                await deleteDoc(docRef);  // Firestore에서 문서 삭제
             } else {
                 setError('상품을 찾을 수 없습니다.');
                 setLoading(false);

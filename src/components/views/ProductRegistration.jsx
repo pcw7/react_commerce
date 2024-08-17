@@ -104,11 +104,12 @@ function ProductRegistration() {
                 );
             }
 
+            // 숫자 필드로 변환하여 저장
             const productData = {
                 productName,
                 description,
-                productPrice,
-                productQunatity,
+                productPrice: parseFloat(productPrice),  // 여기서 문자열을 숫자로 변환
+                productQunatity: parseInt(productQunatity, 10),  // 정수로 변환
                 productCategory,
                 imageUrls,
                 sellerId: userId,
