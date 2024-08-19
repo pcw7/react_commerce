@@ -20,7 +20,7 @@ function AllProductsPage() {
                     collection(db, 'Product'),
                     orderBy(sortOrder, sortDirection),
                     ...(pageParam ? [startAfter(pageParam)] : []),
-                    limit(10)
+                    limit(12)
                 );
             } else {
                 q = query(
@@ -28,7 +28,7 @@ function AllProductsPage() {
                     where('productCategory', '==', selectedCategory),
                     orderBy(sortOrder, sortDirection),
                     ...(pageParam ? [startAfter(pageParam)] : []),
-                    limit(10)
+                    limit(12)
                 );
             }
             const querySnapshot = await getDocs(q);
