@@ -60,6 +60,10 @@ function AllProductsPage() {
         setSortDirection(direction);
     };
 
+    const formatPrice = (price) => {
+        return price.toLocaleString('ko-KR') + '원';
+    };
+
     return (
         <div className="min-h-screen bg-gray-100">
             <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
@@ -132,7 +136,8 @@ function AllProductsPage() {
                                 />
                                 <h3 className="text-lg font-semibold mt-2">{product.productName}</h3>
                                 <p className="text-gray-600">{product.description}</p>
-                                <p className="text-red-500 font-bold mt-1">{product.productPrice}원</p>
+                                {/* <p className="text-red-500 font-bold mt-1">{product.productPrice}원</p> */}
+                                <p className="text-red-500 font-bold mt-1">{formatPrice(product.productPrice)}</p>
                             </div>
                         ))}
                     </div>

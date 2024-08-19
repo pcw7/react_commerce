@@ -144,6 +144,10 @@ function ProductDetail() {
         }
     };
 
+    const formatPrice = (price) => {
+        return price.toLocaleString('ko-KR') + '원';
+    };
+
     if (loading) {
         return <p>상품 정보를 불러오는 중...</p>;
     }
@@ -180,7 +184,8 @@ function ProductDetail() {
                     </div>
                     <div>
                         <p className="text-xl font-semibold mb-4">{product.description}</p>
-                        <p className="text-red-500 text-2xl font-bold">{product.productPrice}원</p>
+                        {/* <p className="text-red-500 text-2xl font-bold">{product.productPrice}원</p> */}
+                        <p className="text-red-500 text-2xl font-bold">{formatPrice(product.productPrice)}</p>
                         <p className="text-gray-700 text-lg font-semibold mt-2">수량: {product.productQunatity}</p>
                         <p className="text-gray-700 text-lg font-semibold mt-2">카테고리: {product.productCategory}</p>
 
@@ -238,7 +243,8 @@ function ProductDetail() {
                                     />
                                     <h3 className="text-lg font-semibold mt-2">{relatedProduct.productName}</h3>
                                     <p className="text-gray-600">{relatedProduct.description}</p>
-                                    <p className="text-red-500 font-bold mt-1">{relatedProduct.productPrice}원</p>
+                                    {/* <p className="text-red-500 font-bold mt-1">{relatedProduct.productPrice}원</p> */}
+                                    <p className="text-red-500 font-bold mt-1">{formatPrice(relatedProduct.productPrice)}</p>
                                 </div>
                             ))}
                         </div>
