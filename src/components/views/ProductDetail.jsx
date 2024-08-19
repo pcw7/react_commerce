@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { db, storage } from '@/firebase';
 import { collection, query, where, getDocs, deleteDoc, addDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
-import Navbar from './Navbar';
+import { useCart } from '../../context/CarContext';  // CartContext 사용
 import Cart from './Cart';
 
 function ProductDetail() {
@@ -16,10 +16,7 @@ function ProductDetail() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [isInCart, setIsInCart] = useState(false);
-    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-    const openDrawer = () => setIsDrawerOpen(true);
-    const closeDrawer = () => setIsDrawerOpen(false);
+    const { incrementCartCount, openCart, closeCart, isCartOpen } = useCart();
 
     useEffect(() => {
         const fetchProduct = async () => {
@@ -133,6 +130,7 @@ function ProductDetail() {
                 });
                 alert('장바구니에 추가되었습니다.');
                 setIsInCart(true);
+                incrementCartCount();
             }
         } catch (error) {
             console.error('장바구니에 추가하는 중 오류가 발생했습니다.', error);
@@ -160,7 +158,6 @@ function ProductDetail() {
 
     return (
         <div className="min-h-screen bg-gray-100">
-            <Navbar />
             <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
                 <h1 className="text-3xl font-bold text-gray-900">{product.productName}</h1>
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -189,7 +186,7 @@ function ProductDetail() {
 
                         {isInCart ? (
                             <button
-                                onClick={openDrawer}
+                                onClick={openCart}  // CartContext의 openCart 사용
                                 className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4 focus:outline-none focus:shadow-outline"
                             >
                                 장바구니 보기
@@ -204,7 +201,7 @@ function ProductDetail() {
                         )}
                     </div>
                 </div>
-                <Cart isOpen={isDrawerOpen} onClose={closeDrawer} onItemRemoved={handleItemRemoved} />
+                <Cart isOpen={isCartOpen} onClose={closeCart} onItemRemoved={handleItemRemoved} />
 
                 {product.sellerId === userId && (
                     <div className="flex space-x-4 mt-8">

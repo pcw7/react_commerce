@@ -13,6 +13,9 @@ import Mypage from './components/views/Mypage';
 import ProductRegistration from './components/views/ProductRegistration';
 import ProductDetail from './components/views/ProductDetail';
 import AllProductsPage from './components/views/AllProductsPage';
+import Navbar from './components/views/Navbar';
+import Cart from './components/views/Cart';
+import { CartProvider } from './context/CarContext.jsx';
 
 function App() {
   const dispatch = useDispatch();
@@ -38,18 +41,22 @@ function App() {
   }, [dispatch]);
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/signup" element={<SignupForm />} />
-        <Route path="/login" element={<LoginForm />} />
-        <Route path="/mypage" element={<Mypage />} />
-        <Route path="/product-registration" element={<ProductRegistration />} />
-        <Route path="/product-registration/:productId" element={<ProductRegistration />} />
-        <Route path="/product/:productId" element={<ProductDetail />} />
-        <Route path="/all-products" element={<AllProductsPage />} />
-      </Routes>
-    </Router>
+    <CartProvider>
+      <Router>
+        <Navbar />
+        <Cart />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/signup" element={<SignupForm />} />
+          <Route path="/login" element={<LoginForm />} />
+          <Route path="/mypage" element={<Mypage />} />
+          <Route path="/product-registration" element={<ProductRegistration />} />
+          <Route path="/product-registration/:productId" element={<ProductRegistration />} />
+          <Route path="/product/:productId" element={<ProductDetail />} />
+          <Route path="/all-products" element={<AllProductsPage />} />
+        </Routes>
+      </Router>
+    </CartProvider>
   );
 }
 

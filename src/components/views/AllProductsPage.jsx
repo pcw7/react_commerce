@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Navbar from './Navbar';
+
 import { db } from '@/firebase';
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 
@@ -62,7 +62,6 @@ function AllProductsPage() {
 
     return (
         <div className="min-h-screen bg-gray-100">
-            <Navbar />
             <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-4">
                     <h1 className="text-3xl font-bold text-gray-900">전체 물품 목록</h1>

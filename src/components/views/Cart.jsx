@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { collection, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/firebase';
+import { useCart } from '../../context/CarContext';
 
-function Cart({ isOpen, onClose, onItemRemoved }) {
+function Cart({ onItemRemoved }) {
     const [cartItems, setCartItems] = useState([]);
     const userId = useSelector((state) => state.auth.userId);
+    const { isCartOpen, closeCart, fetchCartItemCount } = useCart();
 
     useEffect(() => {
         const fetchCartItemsWithDetails = async () => {
-            if (isOpen) {
+            if (isCartOpen) {
                 const cartQuery = query(collection(db, 'CartHistory'), where('userId', '==', userId));
                 const cartSnapshot = await getDocs(cartQuery);
                 const cartItemsData = cartSnapshot.docs.map((doc) => ({
@@ -35,11 +37,12 @@ function Cart({ isOpen, onClose, onItemRemoved }) {
 
                 const detailedCartItems = await Promise.all(productPromises);
                 setCartItems(detailedCartItems);
+                fetchCartItemCount(userId);  // 장바구니 아이템 개수 업데이트
             }
         };
 
         fetchCartItemsWithDetails();
-    }, [isOpen, userId]);
+    }, [isCartOpen, userId, fetchCartItemCount]);
 
     const handleQuantityChange = async (itemId, newQuantity) => {
         if (newQuantity < 1) return;
@@ -57,6 +60,7 @@ function Cart({ isOpen, onClose, onItemRemoved }) {
                         item.productId === itemId ? { ...item, qunatity: newQuantity } : item
                     )
                 );
+                fetchCartItemCount(userId);  // 장바구니 아이템 개수 업데이트
             }
         } catch (error) {
             console.error('수량 업데이트 중 오류가 발생했습니다.', error);
@@ -72,7 +76,11 @@ function Cart({ isOpen, onClose, onItemRemoved }) {
                 const docRef = querySnapshot.docs[0].ref;
                 await deleteDoc(docRef);
 
-                setCartItems((prevItems) => prevItems.filter((item) => item.productId !== itemId));
+                setCartItems((prevItems) => {
+                    const updatedItems = prevItems.filter((item) => item.productId !== itemId);
+                    fetchCartItemCount(userId);  // 장바구니 아이템 개수 업데이트
+                    return updatedItems;
+                });
 
                 if (onItemRemoved) {
                     onItemRemoved(itemId); // onItemRemoved 콜백 호출
@@ -85,11 +93,11 @@ function Cart({ isOpen, onClose, onItemRemoved }) {
 
     return (
         <div
-            className={`fixed top-0 right-0 h-full w-64 bg-white shadow-lg transform ${isOpen ? 'translate-x-0' : 'translate-x-full'
+            className={`fixed top-0 right-0 h-full w-64 bg-white shadow-lg transform ${isCartOpen ? 'translate-x-0' : 'translate-x-full'
                 } transition-transform duration-300 ease-in-out`}
         >
             <div className="p-4">
-                <button onClick={onClose} className="text-gray-600 hover:text-gray-800">
+                <button onClick={closeCart} className="text-gray-600 hover:text-gray-800">
                     닫기
                 </button>
                 <h2 className="text-2xl font-bold mb-4">장바구니</h2>
