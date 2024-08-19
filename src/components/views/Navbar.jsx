@@ -22,11 +22,6 @@ function Navbar() {
                 <Link to="/all-products" className="text-2xl font-bold text-red-500">SHOP</Link>
             </div>
             <div className="flex items-center space-x-4">
-                <input
-                    type="text"
-                    placeholder="Search for any product"
-                    className="border border-gray-300 p-2 rounded"
-                />
                 {isAuthenticated ? (
                     <>
                         <p>안녕하세요, {isSeller ? '판매자' : '구매자'}님!</p>
