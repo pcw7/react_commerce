@@ -1,51 +1,70 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { db } from '@/firebase';
-import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where, limit, startAfter } from 'firebase/firestore';
+import { useInView } from 'react-intersection-observer';
 
 function AllProductsPage() {
-    const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('전체');
-    const [sortOrder, setSortOrder] = useState('createdAt'); // 정렬 기준을 저장하는 상태
-    const [sortDirection, setSortDirection] = useState('desc'); // 정렬 방향을 저장하는 상태
+    const [sortOrder, setSortOrder] = useState('createdAt');
+    const [sortDirection, setSortDirection] = useState('desc');
     const navigate = useNavigate();
+    const { ref, inView } = useInView();  // Intersection Observer
 
-    useEffect(() => {
-        const fetchProducts = async () => {
-            setLoading(true);
-            try {
-                let q;
-                if (selectedCategory === '전체') {
-                    q = query(
-                        collection(db, 'Product'),
-                        orderBy(sortOrder, sortDirection)
-                    );
-                } else {
-                    q = query(
-                        collection(db, 'Product'),
-                        where('productCategory', '==', selectedCategory),
-                        orderBy(sortOrder, sortDirection)
-                    );
-                }
-                const querySnapshot = await getDocs(q);
-                const productList = querySnapshot.docs.map((doc) => ({
-                    id: doc.id,
-                    ...doc.data(),
-                }));
-                setProducts(productList);
-            } catch (err) {
-                console.error('Error fetching products:', err);
-                setError('상품을 불러오는 중 오류가 발생했습니다.');
-            } finally {
-                setLoading(false);
+    const fetchProducts = async ({ pageParam = null }) => {
+        try {
+            let q;
+            if (selectedCategory === '전체') {
+                q = query(
+                    collection(db, 'Product'),
+                    orderBy(sortOrder, sortDirection),
+                    ...(pageParam ? [startAfter(pageParam)] : []),
+                    limit(10)
+                );
+            } else {
+                q = query(
+                    collection(db, 'Product'),
+                    where('productCategory', '==', selectedCategory),
+                    orderBy(sortOrder, sortDirection),
+                    ...(pageParam ? [startAfter(pageParam)] : []),
+                    limit(10)
+                );
             }
-        };
+            const querySnapshot = await getDocs(q);
+            const lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];  // 마지막 문서
+            const productList = querySnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
+            return {
+                products: productList,
+                nextCursor: lastVisible,  // 다음 페이지의 시작점
+            };
+        } catch (err) {
+            throw new Error('상품을 불러오는 중 오류가 발생했습니다.');
+        }
+    };
 
-        fetchProducts();
-    }, [selectedCategory, sortOrder, sortDirection]);
+    const {
+        data,
+        error,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+        isLoading,
+    } = useInfiniteQuery({
+        queryKey: ['products', selectedCategory, sortOrder, sortDirection],
+        queryFn: fetchProducts,
+        getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+    });
+
+    // Intersection Observer로 감지되면 다음 페이지 로드
+    useEffect(() => {
+        if (inView && hasNextPage) {
+            fetchNextPage();
+        }
+    }, [inView, hasNextPage, fetchNextPage]);
 
     const handleProductClick = (productId) => {
         navigate(`/product/${productId}`);
@@ -117,32 +136,37 @@ function AllProductsPage() {
                     </div>
                 </div>
 
-                {loading ? (
+                {isLoading ? (
                     <p>상품을 불러오는 중...</p>
                 ) : error ? (
-                    <p className="text-red-500">{error}</p>
-                ) : products.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {products.map((product) => (
-                            <div
-                                key={product.id}
-                                className="border rounded-lg p-4 shadow-sm cursor-pointer"
-                                onClick={() => handleProductClick(product.productId)}
-                            >
-                                <img
-                                    src={product.imageUrls[0]}
-                                    alt={`${product.productName} 이미지`}
-                                    className="w-full h-48 object-cover rounded-t-lg"
-                                />
-                                <h3 className="text-lg font-semibold mt-2">{product.productName}</h3>
-                                <p className="text-gray-600">{product.description}</p>
-                                {/* <p className="text-red-500 font-bold mt-1">{product.productPrice}원</p> */}
-                                <p className="text-red-500 font-bold mt-1">{formatPrice(product.productPrice)}</p>
-                            </div>
-                        ))}
-                    </div>
+                    <p className="text-red-500">{error.message}</p>
                 ) : (
-                    <p>등록된 물품이 없습니다.</p>
+                    <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {data.pages.map((page) =>
+                                page.products.map((product) => (
+                                    <div
+                                        key={product.id}
+                                        className="border rounded-lg p-4 shadow-sm cursor-pointer"
+                                        onClick={() => handleProductClick(product.productId)}
+                                    >
+                                        <img
+                                            src={product.imageUrls[0]}
+                                            alt={`${product.productName} 이미지`}
+                                            className="w-full h-48 object-cover rounded-t-lg"
+                                        />
+                                        <h3 className="text-lg font-semibold mt-2">{product.productName}</h3>
+                                        <p className="text-gray-600">{product.description}</p>
+                                        <p className="text-red-500 font-bold mt-1">{formatPrice(product.productPrice)}</p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        <div ref={ref} className="flex justify-center mt-4">
+                            {isFetchingNextPage ? <p>더 불러오는 중...</p> : null}
+                        </div>
+                    </>
                 )}
             </div>
         </div>

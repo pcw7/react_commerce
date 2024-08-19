@@ -2,8 +2,9 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from './firebase'; // Firebase Auth import
+import { auth, db } from './firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './App.css';
 
 import Home from './components/views/Home';
@@ -16,6 +17,8 @@ import AllProductsPage from './components/views/AllProductsPage';
 import Navbar from './components/views/Navbar';
 import Cart from './components/views/Cart';
 import { CartProvider } from './context/CarContext.jsx';
+
+const queryClient = new QueryClient();
 
 function App() {
   const dispatch = useDispatch();
@@ -41,22 +44,24 @@ function App() {
   }, [dispatch]);
 
   return (
-    <CartProvider>
-      <Router>
-        <Navbar />
-        <Cart />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/signup" element={<SignupForm />} />
-          <Route path="/login" element={<LoginForm />} />
-          <Route path="/mypage" element={<Mypage />} />
-          <Route path="/product-registration" element={<ProductRegistration />} />
-          <Route path="/product-registration/:productId" element={<ProductRegistration />} />
-          <Route path="/product/:productId" element={<ProductDetail />} />
-          <Route path="/all-products" element={<AllProductsPage />} />
-        </Routes>
-      </Router>
-    </CartProvider>
+    <QueryClientProvider client={queryClient}>
+      <CartProvider>
+        <Router>
+          <Navbar />
+          <Cart />
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/signup" element={<SignupForm />} />
+            <Route path="/login" element={<LoginForm />} />
+            <Route path="/mypage" element={<Mypage />} />
+            <Route path="/product-registration" element={<ProductRegistration />} />
+            <Route path="/product-registration/:productId" element={<ProductRegistration />} />
+            <Route path="/product/:productId" element={<ProductDetail />} />
+            <Route path="/all-products" element={<AllProductsPage />} />
+          </Routes>
+        </Router>
+      </CartProvider>
+    </QueryClientProvider>
   );
 }
 
