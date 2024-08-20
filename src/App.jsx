@@ -17,6 +17,7 @@ import AllProductsPage from './components/views/AllProductsPage';
 import Navbar from './components/views/Navbar';
 import Cart from './components/views/Cart';
 import { CartProvider } from './context/CarContext.jsx';
+import MetaTag from "./MetaTag";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <MetaTag />
       <CartProvider>
         <Router>
           <Navbar />
