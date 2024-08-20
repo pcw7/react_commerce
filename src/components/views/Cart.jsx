@@ -91,6 +91,10 @@ function Cart({ onItemRemoved }) {
         }
     };
 
+    const formatPrice = (price) => {
+        return price.toLocaleString('ko-KR') + '원';
+    };
+
     return (
         <div
             className={`fixed top-0 right-0 h-full w-64 bg-white shadow-lg transform ${isCartOpen ? 'translate-x-0' : 'translate-x-full'
