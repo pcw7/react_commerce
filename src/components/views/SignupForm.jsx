@@ -4,12 +4,14 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { setDoc, doc, runTransaction } from "firebase/firestore";
 import { auth, db } from "../../firebase";
 import { validatePassword } from '../utils/validation';
+import { useNavigate } from 'react-router-dom';
 
 const SignupForm = () => {
   const dispatch = useDispatch();
   const username = useSelector(state => state.signup.username);
   const email = useSelector(state => state.signup.email);
   const password = useSelector(state => state.signup.password);
+  const navigate = useNavigate();
 
   const [passwordError, setPasswordError] = useState('');
   const [isSeller, setIsSeller] = useState(false);
@@ -64,6 +66,18 @@ const SignupForm = () => {
         email: email,
         isSeller: isSeller,
       });
+
+      // 회원가입 완료 알림창
+      alert('회원가입이 완료되었습니다.');
+
+      // Redux 상태 초기화
+      dispatch({ type: 'SET_USERNAME', payload: '' });
+      dispatch({ type: 'SET_EMAIL', payload: '' });
+      dispatch({ type: 'SET_PASSWORD', payload: '' });
+
+      // 로그인 페이지로 이동
+      navigate('/login');
+
     } catch (error) {
       console.error(error);
     }
