@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { db, storage } from '@/firebase';
 import { collection, query, where, getDocs, deleteDoc, addDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
-import { useCart } from '../../context/CarContext';  // CartContext 사용
+import { useCart } from '../../context/CarContext';
 import Cart from './Cart';
 
 function ProductDetail() {
@@ -16,6 +16,7 @@ function ProductDetail() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [isInCart, setIsInCart] = useState(false);
+    const [selectedImage, setSelectedImage] = useState(''); // 큰 이미지로 표시할 이미지 상태
     const { incrementCartCount, openCart, closeCart, isCartOpen } = useCart();
 
     useEffect(() => {
@@ -27,6 +28,7 @@ function ProductDetail() {
                     const docSnap = querySnapshot.docs[0];
                     const productData = docSnap.data();
                     setProduct(productData);
+                    setSelectedImage(productData.imageUrls[0]); // 첫 번째 이미지를 기본 선택 이미지로 설정
                     fetchRelatedProducts(productData.productCategory);
 
                     const cartQuery = query(
@@ -114,9 +116,8 @@ function ProductDetail() {
 
     const handleAddToCart = async () => {
         if (!userId) {
-            // 로그인이 되어 있지 않은 경우
             alert('로그인이 필요합니다.');
-            navigate('/login'); // 로그인 페이지로 이동
+            navigate('/login');
             return;
         }
 
@@ -174,7 +175,7 @@ function ProductDetail() {
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <img
-                            src={product.imageUrls[0]}
+                            src={selectedImage}  // 큰 이미지로 표시할 이미지
                             alt={`${product.productName} 이미지`}
                             className="w-full h-96 object-cover rounded-lg"
                         />
@@ -184,21 +185,21 @@ function ProductDetail() {
                                     key={index}
                                     src={url}
                                     alt={`${product.productName} 이미지 ${index + 1}`}
-                                    className="w-full h-24 object-cover rounded-lg"
+                                    className="w-full h-24 object-cover rounded-lg cursor-pointer"
+                                    onClick={() => setSelectedImage(url)} // 작은 이미지 클릭 시 큰 이미지 변경
                                 />
                             ))}
                         </div>
                     </div>
                     <div>
                         <p className="text-xl font-semibold mb-4">{product.description}</p>
-                        {/* <p className="text-red-500 text-2xl font-bold">{product.productPrice}원</p> */}
                         <p className="text-red-500 text-2xl font-bold">{formatPrice(product.productPrice)}</p>
                         <p className="text-gray-700 text-lg font-semibold mt-2">수량: {product.productQunatity}</p>
                         <p className="text-gray-700 text-lg font-semibold mt-2">카테고리: {product.productCategory}</p>
 
                         {isInCart ? (
                             <button
-                                onClick={openCart}  // CartContext의 openCart 사용
+                                onClick={openCart}
                                 className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mt-4 focus:outline-none focus:shadow-outline"
                             >
                                 장바구니 보기
@@ -250,7 +251,6 @@ function ProductDetail() {
                                     />
                                     <h3 className="text-lg font-semibold mt-2">{relatedProduct.productName}</h3>
                                     <p className="text-gray-600">{relatedProduct.description}</p>
-                                    {/* <p className="text-red-500 font-bold mt-1">{relatedProduct.productPrice}원</p> */}
                                     <p className="text-red-500 font-bold mt-1">{formatPrice(relatedProduct.productPrice)}</p>
                                 </div>
                             ))}
