@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { setDoc, doc, runTransaction } from "firebase/firestore";
@@ -12,6 +12,8 @@ const SignupForm = () => {
   const email = useSelector(state => state.signup.email);
   const password = useSelector(state => state.signup.password);
   const navigate = useNavigate();
+
+  const emailInputRef = useRef(null); // 이메일 입력창에 대한 참조 생성
 
   const [passwordError, setPasswordError] = useState('');
   const [isSeller, setIsSeller] = useState(false);
@@ -79,7 +81,12 @@ const SignupForm = () => {
       navigate('/login');
 
     } catch (error) {
-      console.error(error);
+      if (error.code === 'auth/email-already-in-use') {
+        alert('이미 존재하는 이메일입니다.');
+        emailInputRef.current.focus(); // 이메일 입력창에 커서 이동
+      } else {
+        console.error(error);
+      }
     }
   };
 
@@ -94,6 +101,7 @@ const SignupForm = () => {
               type="email"
               value={email}
               onChange={handleEmailChange}
+              ref={emailInputRef} // 이메일 입력창 참조 설정
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             />
           </div>
