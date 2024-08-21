@@ -32,8 +32,7 @@ const LoginForm = () => {
         dispatch({ type: 'SET_USER_DATA', payload: userData });
       }
 
-      // navigate('/');
-      navigate('/all-products');
+      navigate('/');
     } catch (error) {
       setLoginError('Invalid email or password');
       dispatch({ type: 'LOGIN_FAILURE', payload: error.message });

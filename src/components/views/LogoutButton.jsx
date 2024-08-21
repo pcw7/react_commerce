@@ -12,7 +12,7 @@ const LogoutButton = () => {
     try {
       await signOut(auth);
       dispatch({ type: 'LOGOUT' });
-      navigate('/all-products');
+      navigate('/');
     } catch (error) {
       console.error('Error logging out:', error);
     }

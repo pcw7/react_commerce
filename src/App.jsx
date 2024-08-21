@@ -7,7 +7,6 @@ import { doc, getDoc } from 'firebase/firestore';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './App.css';
 
-import Home from './components/views/Home';
 import SignupForm from './components/views/SignupForm';
 import LoginForm from './components/views/LoginForm';
 import Mypage from './components/views/Mypage';
@@ -52,14 +51,13 @@ function App() {
           <Navbar />
           <Cart />
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<AllProductsPage />} />
             <Route path="/signup" element={<SignupForm />} />
             <Route path="/login" element={<LoginForm />} />
             <Route path="/mypage" element={<Mypage />} />
             <Route path="/product-registration" element={<ProductRegistration />} />
             <Route path="/product-registration/:productId" element={<ProductRegistration />} />
             <Route path="/product/:productId" element={<ProductDetail />} />
-            <Route path="/all-products" element={<AllProductsPage />} />
           </Routes>
         </Router>
       </CartProvider>

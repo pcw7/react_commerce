@@ -19,7 +19,7 @@ function Navbar() {
     return (
         <nav className="bg-white shadow-md py-4 px-8 flex justify-between items-center">
             <div>
-                <Link to="/all-products" className="text-2xl font-bold text-red-500">SHOP</Link>
+                <Link to="/" className="text-2xl font-bold text-red-500">SHOP</Link>
             </div>
             <div className="flex items-center space-x-4">
                 {isAuthenticated ? (
