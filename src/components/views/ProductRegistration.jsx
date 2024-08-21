@@ -86,6 +86,12 @@ function ProductRegistration() {
         setLoading(true);
 
         try {
+            if (!productId && images.length === 0) {
+                setError('최소 한 개의 이미지를 추가해주세요.');
+                setLoading(false);
+                return;
+            }
+
             let imageUrls = [...existingImageUrls];
 
             if (images.length > 0) {
