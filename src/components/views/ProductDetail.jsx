@@ -113,7 +113,14 @@ function ProductDetail() {
     };
 
     const handleAddToCart = async () => {
-        if (!userId || !productId) return;
+        if (!userId) {
+            // 로그인이 되어 있지 않은 경우
+            alert('로그인이 필요합니다.');
+            navigate('/login'); // 로그인 페이지로 이동
+            return;
+        }
+
+        if (!productId) return;
 
         try {
             const cartRef = collection(db, 'CartHistory');
