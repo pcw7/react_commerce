@@ -1,34 +1,32 @@
 import React, { useState, useRef } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { createUserWithEmailAndPassword, signOut } from "firebase/auth"; // signOut 함수 추가
 import { setDoc, doc, runTransaction } from "firebase/firestore";
 import { auth, db } from "../../firebase";
 import { validatePassword } from '../utils/validation';
 import { useNavigate } from 'react-router-dom';
+import { useMutation } from '@tanstack/react-query';
 
 const SignupForm = () => {
-  const dispatch = useDispatch();
-  const username = useSelector(state => state.signup.username);
-  const email = useSelector(state => state.signup.email);
-  const password = useSelector(state => state.signup.password);
   const navigate = useNavigate();
+  const emailInputRef = useRef(null);
 
-  const emailInputRef = useRef(null); // 이메일 입력창에 대한 참조 생성
-
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isSeller, setIsSeller] = useState(false);
 
   const handleUsernameChange = (e) => {
-    dispatch({ type: 'SET_USERNAME', payload: e.target.value });
+    setUsername(e.target.value);
   };
 
   const handleEmailChange = (e) => {
-    dispatch({ type: 'SET_EMAIL', payload: e.target.value });
+    setEmail(e.target.value);
   };
 
   const handlePasswordChange = (e) => {
     const newPassword = e.target.value;
-    dispatch({ type: 'SET_PASSWORD', payload: newPassword });
+    setPassword(newPassword);
 
     if (!validatePassword(newPassword)) {
       setPasswordError('비밀번호는 8자 이상이어야 하며 대문자, 소문자, 숫자, 특수문자 중 적어도 3가지를 포함해야 합니다.');
@@ -41,15 +39,13 @@ const SignupForm = () => {
     setIsSeller(e.target.checked);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!validatePassword(password)) {
-      setPasswordError('비밀번호 조건을 충족하지 않습니다. 비밀번호를 다시 입력해주세요.');
-      return;
-    }
-    try {
+  const signupMutation = useMutation({
+    mutationFn: async () => {
+      if (!validatePassword(password)) {
+        throw new Error('비밀번호 조건을 충족하지 않습니다.');
+      }
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      console.log(userCredential);
 
       const userId = await runTransaction(db, async (transaction) => {
         const counterRef = doc(db, 'Counters', 'userCounter');
@@ -69,25 +65,35 @@ const SignupForm = () => {
         isSeller: isSeller,
       });
 
-      // 회원가입 완료 알림창
-      alert('회원가입이 완료되었습니다.');
+      // 회원가입 후 자동 로그아웃 처리
+      await signOut(auth);
 
-      // Redux 상태 초기화
-      dispatch({ type: 'SET_USERNAME', payload: '' });
-      dispatch({ type: 'SET_EMAIL', payload: '' });
-      dispatch({ type: 'SET_PASSWORD', payload: '' });
+      return userCredential;
+    },
+    onSuccess: () => {
+      alert('회원가입이 완료되었습니다. 이제 로그인해 주세요.');
+
+      setUsername('');
+      setEmail('');
+      setPassword('');
 
       // 로그인 페이지로 이동
       navigate('/login');
-
-    } catch (error) {
+    },
+    onError: (error) => {
       if (error.code === 'auth/email-already-in-use') {
         alert('이미 존재하는 이메일입니다.');
-        emailInputRef.current.focus(); // 이메일 입력창에 커서 이동
+        emailInputRef.current.focus();
       } else {
         console.error(error);
+        alert('회원가입 중 오류가 발생했습니다.');
       }
     }
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    signupMutation.mutate();
   };
 
   return (
@@ -101,7 +107,7 @@ const SignupForm = () => {
               type="email"
               value={email}
               onChange={handleEmailChange}
-              ref={emailInputRef} // 이메일 입력창 참조 설정
+              ref={emailInputRef}
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             />
           </div>
@@ -142,8 +148,9 @@ const SignupForm = () => {
             <button
               type="submit"
               className="bg-orange-500 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
+              disabled={signupMutation.isLoading}
             >
-              회원가입
+              {signupMutation.isLoading ? '회원가입 중...' : '회원가입'}
             </button>
           </div>
         </form>

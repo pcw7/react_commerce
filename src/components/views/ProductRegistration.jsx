@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { db, storage } from '@/firebase';
-import { doc, getDoc, updateDoc, addDoc, collection, query, where, getDocs, runTransaction } from 'firebase/firestore';
+import { collection, query, where, doc, getDocs, updateDoc, addDoc, runTransaction } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { useSelector } from 'react-redux';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '../../context/AuthContext';
 
 function ProductRegistration() {
     const { productId } = useParams();
+    const navigate = useNavigate();
     const [productName, setProductName] = useState('');
     const [description, setDescription] = useState('');
     const [productPrice, setProductPrice] = useState('');
@@ -15,61 +17,43 @@ function ProductRegistration() {
     const [images, setImages] = useState([]);
     const [existingImageUrls, setExistingImageUrls] = useState([]);
     const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-    const navigate = useNavigate();
-
-    const userId = useSelector((state) => state.auth.userId);
+    const { user } = useAuth();
+    const userId = user?.userId;
     const categories = ['음식', '옷'];
+    const queryClient = useQueryClient();
 
-    // 기존 데이터 불러오기
+    // 기존 데이터 가져오기
+    const { data: productData, isLoading: loadingProductData } = useQuery({
+        queryKey: ['product', productId],
+        queryFn: async () => {
+            const q = query(collection(db, 'Product'), where('productId', '==', parseInt(productId)));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                return querySnapshot.docs[0].data();
+            } else {
+                throw new Error('상품을 찾을 수 없습니다.');
+            }
+        },
+        enabled: !!productId,  // productId가 있을 때만 쿼리 실행
+    });
+
     useEffect(() => {
-        if (productId) {
-            const fetchProduct = async () => {
-                try {
-                    const q = query(
-                        collection(db, 'Product'),
-                        where('productId', '==', parseInt(productId))
-                    );
-                    const querySnapshot = await getDocs(q);
-                    if (!querySnapshot.empty) {
-                        const docSnap = querySnapshot.docs[0];
-                        const data = docSnap.data();
-                        setProductName(data.productName);
-                        setDescription(data.description);
-                        setProductPrice(data.productPrice);
-                        setProductQunatity(data.productQunatity);
-                        setProductCategory(data.productCategory);
-                        setExistingImageUrls(data.imageUrls || []);
-                    } else {
-                        setError('상품을 찾을 수 없습니다.');
-                    }
-                } catch (error) {
-                    console.error('Error fetching product:', error);
-                    setError('상품 정보를 불러오는 중 오류가 발생했습니다.');
-                }
-            };
-
-            fetchProduct();
+        if (productData) {
+            setProductName(productData.productName || '');
+            setDescription(productData.description || '');
+            setProductPrice(productData.productPrice || '');
+            setProductQunatity(productData.productQunatity || '');
+            setProductCategory(productData.productCategory || '');
+            setExistingImageUrls(productData.imageUrls || []);
         }
-    }, [productId]);
+    }, [productData]);
 
+    // 이미지 변경 핸들러
     const handleImageChange = (e) => {
         setImages(Array.from(e.target.files));
     };
 
-    const generateTimestamp = () => {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
-        const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
-
-        return `${year}${month}${day}${hours}${minutes}${seconds}${milliseconds}`;
-    };
-
+    // 기존 이미지 삭제
     const deleteExistingImages = async () => {
         try {
             for (const url of existingImageUrls) {
@@ -81,28 +65,66 @@ function ProductRegistration() {
         }
     };
 
+    // 상품 등록 Mutation
+    const addProductMutation = useMutation({
+        mutationFn: async (newProductData) => {
+            await addDoc(collection(db, 'Product'), newProductData);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries('products');
+            navigate('/mypage');
+        },
+        onError: () => {
+            setError('상품 등록 중 오류가 발생했습니다.');
+        }
+    });
+
+    // 상품 수정 Mutation
+    const updateProductMutation = useMutation({
+        mutationFn: async (updatedProductData) => {
+            const q = query(
+                collection(db, 'Product'),
+                where('productId', '==', parseInt(productId))
+            );
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                const docRef = querySnapshot.docs[0].ref;
+                await updateDoc(docRef, updatedProductData);
+            } else {
+                throw new Error('상품을 찾을 수 없습니다.');
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['product', productId]);
+            navigate('/mypage');
+        },
+        onError: () => {
+            setError('상품 수정 중 오류가 발생했습니다.');
+        }
+    });
+
+    // 폼 제출 핸들러
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setLoading(true);
+        if (!userId) {
+            setError('사용자 정보가 없습니다.');
+            return;
+        }
+
+        if (!productId && images.length === 0) {
+            setError('최소 한 개의 이미지를 추가해주세요.');
+            return;
+        }
+
+        let imageUrls = [...existingImageUrls];
 
         try {
-            if (!productId && images.length === 0) {
-                setError('최소 한 개의 이미지를 추가해주세요.');
-                setLoading(false);
-                return;
-            }
-
-            let imageUrls = [...existingImageUrls];
-
             if (images.length > 0) {
-                // 새 이미지를 업로드하기 전에 기존 이미지를 삭제
                 await deleteExistingImages();
-
-                // 새 이미지를 업로드
                 imageUrls = await Promise.all(
                     images.map(async (image) => {
-                        const timestamp = generateTimestamp();
-                        const uniqueImageName = `${image.name}_${timestamp}`; // 타임스탬프를 파일 이름에 추가
+                        const timestamp = new Date().toISOString();
+                        const uniqueImageName = `${image.name}_${timestamp}`;
                         const imageRef = ref(storage, `Product/${uniqueImageName}`);
                         await uploadBytes(imageRef, image);
                         return await getDownloadURL(imageRef);
@@ -110,35 +132,20 @@ function ProductRegistration() {
                 );
             }
 
-            // 숫자 필드로 변환하여 저장
             const productData = {
                 productName,
                 description,
-                productPrice: parseFloat(productPrice),  // 여기서 문자열을 숫자로 변환
-                productQunatity: parseInt(productQunatity, 10),  // 정수로 변환
+                productPrice: parseFloat(productPrice),
+                productQunatity: parseInt(productQunatity, 10),
                 productCategory,
                 imageUrls,
                 sellerId: userId,
+                createdAt: new Date(),
             };
 
             if (productId) {
-                // 기존 상품 수정
-                const q = query(
-                    collection(db, 'Product'),
-                    where('productId', '==', parseInt(productId))
-                );
-                const querySnapshot = await getDocs(q);
-
-                if (!querySnapshot.empty) {
-                    const docRef = querySnapshot.docs[0].ref; // 문서 참조 가져오기
-                    await updateDoc(docRef, productData);
-                } else {
-                    setError('상품을 찾을 수 없습니다.');
-                    setLoading(false);
-                    return;
-                }
+                updateProductMutation.mutate(productData);
             } else {
-                // 새로운 상품 등록
                 const newProductId = await runTransaction(db, async (transaction) => {
                     const counterRef = doc(db, 'Counters', 'productCounter');
                     const counterDoc = await transaction.get(counterRef);
@@ -150,21 +157,21 @@ function ProductRegistration() {
                     return newProductId;
                 });
 
-                await addDoc(collection(db, 'Product'), {
+                addProductMutation.mutate({
                     ...productData,
-                    productId: newProductId, // 새롭게 생성된 ProductId 추가
-                    createdAt: new Date(),
+                    productId: newProductId,
                 });
             }
-
-            navigate('/mypage');
         } catch (error) {
             console.error('상품 등록 중 오류가 발생했습니다.', error);
             setError('상품 등록 중 오류가 발생했습니다.');
-        } finally {
-            setLoading(false);
         }
     };
+
+    // 로딩 상태 처리
+    if (loadingProductData) {
+        return <p>상품 정보를 불러오는 중...</p>;
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -265,9 +272,9 @@ function ProductRegistration() {
                     <button
                         type="submit"
                         className="bg-orange-500 hover:bg-orange-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline w-full"
-                        disabled={loading}
+                        disabled={addProductMutation.isLoading || updateProductMutation.isLoading}
                     >
-                        {loading ? '등록 중...' : productId ? '상품 수정' : '상품 등록'}
+                        {addProductMutation.isLoading || updateProductMutation.isLoading ? '처리 중...' : productId ? '상품 수정' : '상품 등록'}
                     </button>
                 </form>
             </div>

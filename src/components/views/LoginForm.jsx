@@ -1,42 +1,42 @@
 import React, { useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../../firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 const LoginForm = () => {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const email = useSelector(state => state.auth.email);
-  const password = useSelector(state => state.auth.password);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState(null);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  const handleEmailChange = (e) => {
-    dispatch({ type: 'SET_EMAIL', payload: e.target.value });
-  };
-
-  const handlePasswordChange = (e) => {
-    dispatch({ type: 'SET_PASSWORD', payload: e.target.value });
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
+  const loginMutation = useMutation({
+    mutationFn: async ({ email, password }) => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      dispatch({ type: 'LOGIN_SUCCESS', payload: userCredential.user });
-
       const userDoc = await getDoc(doc(db, "User", userCredential.user.uid));
       if (userDoc.exists()) {
-        const userData = userDoc.data();
-        dispatch({ type: 'SET_USER_DATA', payload: userData });
+        return { user: userCredential.user, userData: userDoc.data() };
+      } else {
+        throw new Error("User data not found");
       }
-
+    },
+    onSuccess: (data) => {
+      // queryClient.setQueryData('user', data.user);
+      queryClient.setQueryData('user', { ...data.user, userId: data.userData.userId });
+      queryClient.setQueryData('userData', data.userData);
       navigate('/');
-    } catch (error) {
+    },
+    onError: (error) => {
       setLoginError('Invalid email or password');
-      dispatch({ type: 'LOGIN_FAILURE', payload: error.message });
-    }
+    },
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setLoginError(null);
+    loginMutation.mutate({ email, password });
   };
 
   return (
@@ -51,7 +51,7 @@ const LoginForm = () => {
             <input
               type="email"
               value={email}
-              onChange={handleEmailChange}
+              onChange={(e) => setEmail(e.target.value)}
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             />
           </div>
@@ -60,7 +60,7 @@ const LoginForm = () => {
             <input
               type="password"
               value={password}
-              onChange={handlePasswordChange}
+              onChange={(e) => setPassword(e.target.value)}
               className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             />
           </div>

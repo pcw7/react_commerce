@@ -1,20 +1,23 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 import { useCart } from '../../context/CarContext';
+import { useAuth } from '../../context/AuthContext';
 import LogoutButton from './LogoutButton';
 
 function Navbar() {
-    const isAuthenticated = useSelector(state => state.auth.isAuthenticated);
-    const isSeller = useSelector(state => state.auth.isSeller);
-    const userId = useSelector(state => state.auth.userId);
-    const { openCart, cartItemCount, fetchCartItemCount } = useCart();  // CartContext에서 사용
+    const { user, isSeller, loading } = useAuth();  // AuthContext에서 로딩 상태도 가져오기
+    const { openCart, cartItemCount, fetchCartItemCount } = useCart();  // CartContext에서 장바구니 정보 가져오기
 
     useEffect(() => {
-        if (isAuthenticated && userId) {
-            fetchCartItemCount(userId);  // 장바구니 아이템 개수 가져오기
+        if (user?.userId) {  // Firestore의 userId 사용
+            fetchCartItemCount(user.userId);  // 장바구니 아이템 개수 가져오기
         }
-    }, [isAuthenticated, userId, fetchCartItemCount]);
+    }, [user?.userId, fetchCartItemCount]);
+
+    // 로딩 중일 때 로딩 메시지 표시
+    if (loading) {
+        return <nav className="bg-white shadow-md py-4 px-8">Loading...</nav>;
+    }
 
     return (
         <nav className="bg-white shadow-md py-4 px-8 flex justify-between items-center">
@@ -22,7 +25,7 @@ function Navbar() {
                 <Link to="/" className="text-2xl font-bold text-red-500">SHOP</Link>
             </div>
             <div className="flex items-center space-x-4">
-                {isAuthenticated ? (
+                {user ? (
                     <>
                         <p>안녕하세요, {isSeller ? '판매자' : '구매자'}님!</p>
                         <Link to="/mypage" className="text-gray-700">My Page</Link>
@@ -41,8 +44,8 @@ function Navbar() {
                     </>
                 ) : (
                     <>
-                        <Link to="/login" className="text-gray-700">Login</Link>
-                        <Link to="/signup" className="text-gray-700">Sign Up</Link>
+                        <Link to="/login" className="text-gray-700">로그인</Link>
+                        <Link to="/signup" className="text-gray-700">회원가입</Link>
                     </>
                 )}
             </div>

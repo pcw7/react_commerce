@@ -1,77 +1,110 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { db, storage } from '@/firebase';
 import { collection, query, where, getDocs, deleteDoc, addDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { useCart } from '../../context/CarContext';
 import Cart from './Cart';
+import { useAuth } from '../../context/AuthContext';
 
 function ProductDetail() {
     const { productId } = useParams();
     const navigate = useNavigate();
-    const userId = useSelector((state) => state.auth.userId);
-    const [product, setProduct] = useState(null);
+    const { user } = useAuth();
+    const userId = user?.userId;
+    const queryClient = useQueryClient();
     const [relatedProducts, setRelatedProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [isInCart, setIsInCart] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(''); // 큰 이미지로 표시할 이미지 상태
+    const [selectedImage, setSelectedImage] = useState('');
     const { incrementCartCount, openCart, closeCart, isCartOpen } = useCart();
 
+    // 상품 정보 가져오기
+    const { data: product, isLoading, error } = useQuery({
+        queryKey: ['product', productId],
+        queryFn: async () => {
+            const q = query(collection(db, 'Product'), where('productId', '==', parseInt(productId)));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                const docSnap = querySnapshot.docs[0];
+                return docSnap.data();
+            } else {
+                throw new Error('상품을 찾을 수 없습니다.');
+            }
+        },
+    });
+
+    // 장바구니에 이미 있는지 확인
+    const { data: isInCart, refetch } = useQuery({
+        queryKey: ['cartItem', userId, productId],
+        queryFn: async () => {
+            if (!userId) return false;
+            const cartQuery = query(
+                collection(db, 'CartHistory'),
+                where('userId', '==', userId),
+                where('productId', '==', parseInt(productId))
+            );
+            const cartSnapshot = await getDocs(cartQuery);
+            return !cartSnapshot.empty;
+        },
+        enabled: !!userId,
+    });
+
     useEffect(() => {
-        const fetchProduct = async () => {
-            try {
-                const q = query(collection(db, 'Product'), where('productId', '==', parseInt(productId)));
-                const querySnapshot = await getDocs(q);
-                if (!querySnapshot.empty) {
-                    const docSnap = querySnapshot.docs[0];
-                    const productData = docSnap.data();
-                    setProduct(productData);
-                    setSelectedImage(productData.imageUrls[0]); // 첫 번째 이미지를 기본 선택 이미지로 설정
-                    fetchRelatedProducts(productData.productCategory);
+        if (product) {
+            setSelectedImage(product.imageUrls[0]);
+            fetchRelatedProducts(product.productCategory);
+        }
+    }, [product]);
 
-                    const cartQuery = query(
-                        collection(db, 'CartHistory'),
-                        where('userId', '==', userId),
-                        where('productId', '==', parseInt(productId))
-                    );
-                    const cartSnapshot = await getDocs(cartQuery);
-                    if (!cartSnapshot.empty) {
-                        setIsInCart(true);
-                    }
-                } else {
-                    setError('상품을 찾을 수 없습니다.');
-                }
-            } catch (err) {
-                console.error('Error fetching product:', err);
-                setError('상품 정보를 불러오는 중 오류가 발생했습니다.');
-            } finally {
-                setLoading(false);
+    const fetchRelatedProducts = async (category) => {
+        try {
+            const q = query(
+                collection(db, 'Product'),
+                where('productCategory', '==', category),
+                where('productId', '!=', parseInt(productId))
+            );
+            const querySnapshot = await getDocs(q);
+            const relatedProductList = querySnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
+            setRelatedProducts(relatedProductList);
+        } catch (err) {
+            console.error('관련 상품을 불러오는 중 오류가 발생했습니다.', err);
+        }
+    };
+
+    const handleAddToCart = async () => {
+        if (!userId) {
+            alert('로그인이 필요합니다.');
+            navigate('/login');
+            return;
+        }
+
+        try {
+            const cartRef = collection(db, 'CartHistory');
+            const q = query(cartRef, where('userId', '==', userId), where('productId', '==', parseInt(productId)));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                alert('장바구니에 이미 있습니다.');
+            } else {
+                await addDoc(cartRef, {
+                    userId,
+                    productId: parseInt(productId),
+                    quantity: 1,
+                });
+                alert('장바구니에 추가되었습니다.');
+
+                // 상태 업데이트
+                await refetch(); // 장바구니 상태 재조회
+                incrementCartCount(); // 장바구니 아이템 수 증가
+                queryClient.invalidateQueries(['cartItems', userId]); // 장바구니 데이터 새로고침
             }
-        };
-
-        const fetchRelatedProducts = async (category) => {
-            try {
-                const q = query(
-                    collection(db, 'Product'),
-                    where('productCategory', '==', category),
-                    where('productId', '!=', parseInt(productId))
-                );
-                const querySnapshot = await getDocs(q);
-                const relatedProductList = querySnapshot.docs.map((doc) => ({
-                    id: doc.id,
-                    ...doc.data(),
-                }));
-                setRelatedProducts(relatedProductList);
-            } catch (err) {
-                console.error('Error fetching related products:', err);
-                setError('관련 상품을 불러오는 중 오류가 발생했습니다.');
-            }
-        };
-
-        fetchProduct();
-    }, [productId, userId]);
+        } catch (error) {
+            console.error('장바구니에 추가하는 중 오류가 발생했습니다.', error);
+        }
+    };
 
     const handleEditClick = () => {
         navigate(`/product-registration/${productId}`);
@@ -84,8 +117,6 @@ function ProductDetail() {
         if (!confirmed) return;
 
         try {
-            setLoading(true);
-
             if (product.imageUrls && product.imageUrls.length > 0) {
                 const deletePromises = product.imageUrls.map((url) => {
                     const imageRef = ref(storage, url);
@@ -100,55 +131,15 @@ function ProductDetail() {
                 const docRef = querySnapshot.docs[0].ref;
                 await deleteDoc(docRef);
             } else {
-                setError('상품을 찾을 수 없습니다.');
-                setLoading(false);
+                alert('상품을 찾을 수 없습니다.');
                 return;
             }
 
+            alert('상품이 삭제되었습니다.');
             navigate('/mypage');
         } catch (err) {
             console.error('상품 삭제 중 오류가 발생했습니다.', err);
-            setError('상품 삭제 중 오류가 발생했습니다.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleAddToCart = async () => {
-        if (!userId) {
-            alert('로그인이 필요합니다.');
-            navigate('/login');
-            return;
-        }
-
-        if (!productId) return;
-
-        try {
-            const cartRef = collection(db, 'CartHistory');
-            const q = query(cartRef, where('userId', '==', userId), where('productId', '==', parseInt(productId)));
-            const querySnapshot = await getDocs(q);
-
-            if (!querySnapshot.empty) {
-                alert('장바구니에 이미 있습니다.');
-            } else {
-                await addDoc(cartRef, {
-                    userId,
-                    productId: parseInt(productId),
-                    qunatity: 1,
-                });
-                alert('장바구니에 추가되었습니다.');
-                setIsInCart(true);
-                incrementCartCount();
-            }
-        } catch (error) {
-            console.error('장바구니에 추가하는 중 오류가 발생했습니다.', error);
-            setError('장바구니에 추가하는 중 오류가 발생했습니다.');
-        }
-    };
-
-    const handleItemRemoved = (removedProductId) => {
-        if (parseInt(productId) === removedProductId) {
-            setIsInCart(false);
+            alert('상품 삭제 중 오류가 발생했습니다.');
         }
     };
 
@@ -156,12 +147,12 @@ function ProductDetail() {
         return price.toLocaleString('ko-KR') + '원';
     };
 
-    if (loading) {
+    if (isLoading) {
         return <p>상품 정보를 불러오는 중...</p>;
     }
 
     if (error) {
-        return <p className="text-red-500">{error}</p>;
+        return <p className="text-red-500">{error.message}</p>;
     }
 
     if (!product) {
@@ -175,7 +166,7 @@ function ProductDetail() {
                 <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <img
-                            src={selectedImage}  // 큰 이미지로 표시할 이미지
+                            src={selectedImage}
                             alt={`${product.productName} 이미지`}
                             className="w-full h-96 object-cover rounded-lg"
                         />
@@ -186,7 +177,7 @@ function ProductDetail() {
                                     src={url}
                                     alt={`${product.productName} 이미지 ${index + 1}`}
                                     className="w-full h-24 object-cover rounded-lg cursor-pointer"
-                                    onClick={() => setSelectedImage(url)} // 작은 이미지 클릭 시 큰 이미지 변경
+                                    onClick={() => setSelectedImage(url)}
                                 />
                             ))}
                         </div>
@@ -214,8 +205,8 @@ function ProductDetail() {
                         )}
                     </div>
                 </div>
-                <Cart isOpen={isCartOpen} onClose={closeCart} onItemRemoved={handleItemRemoved} />
 
+                {/* 물품 수정/삭제 버튼 - 판매자만 표시 */}
                 {product.sellerId === userId && (
                     <div className="flex space-x-4 mt-8">
                         <button
@@ -227,13 +218,13 @@ function ProductDetail() {
                         <button
                             onClick={handleDeleteClick}
                             className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                            disabled={loading}
                         >
-                            {loading ? '삭제 중...' : '물품 삭제'}
+                            물품 삭제
                         </button>
                     </div>
                 )}
 
+                {/* 관련 상품 표시 */}
                 <div className="mt-12">
                     <h2 className="text-2xl font-bold text-gray-900 mb-4">같은 카테고리의 상품들</h2>
                     {relatedProducts.length > 0 ? (
@@ -259,6 +250,8 @@ function ProductDetail() {
                         <p>같은 카테고리의 다른 상품이 없습니다.</p>
                     )}
                 </div>
+
+                <Cart isOpen={isCartOpen} onClose={closeCart} />
             </div>
         </div>
     );

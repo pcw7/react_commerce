@@ -1,44 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '@/firebase';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '../../context/AuthContext'; // AuthContext에서 인증 상태 가져오기
 
 function Mypage() {
-    const isSeller = useSelector(state => state.auth.isSeller);
-    const userId = useSelector(state => state.auth.userId);
+    const { user, isSeller } = useAuth(); // AuthContext에서 사용자 정보와 판매자 여부 가져오기
+    const userId = user?.userId; // Firestore의 userId 사용
     const [activeTab, setActiveTab] = useState('profile');
-    const [products, setProducts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
     const navigate = useNavigate();
 
-    useEffect(() => {
-        if (activeTab === 'products' && isSeller) {
-            const fetchProducts = async () => {
-                try {
-                    const q = query(
-                        collection(db, 'Product'),
-                        where('sellerId', '==', userId),
-                        orderBy('createdAt', 'desc')
-                    );
-                    const querySnapshot = await getDocs(q);
-                    const productList = querySnapshot.docs.map((doc) => ({
-                        id: doc.id,
-                        ...doc.data(),
-                    }));
-                    setProducts(productList);
-                } catch (err) {
-                    console.error('Error fetching products:', err);
-                    setError('상품을 불러오는 중 오류가 발생했습니다.');
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            fetchProducts();
-        }
-    }, [activeTab, isSeller, userId]);
+    const { data: products = [], isLoading, error } = useQuery({
+        queryKey: ['products', userId],
+        queryFn: async () => {
+            if (!isSeller) return [];
+            const q = query(
+                collection(db, 'Product'),
+                where('sellerId', '==', userId),
+                orderBy('createdAt', 'desc')
+            );
+            const querySnapshot = await getDocs(q);
+            return querySnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
+        },
+        enabled: activeTab === 'products' && isSeller, // 판매자일 때만 쿼리 실행
+    });
 
     const handleProductClick = (productId) => {
         navigate(`/product/${productId}`);
@@ -54,10 +43,10 @@ function Mypage() {
     const renderProductsTab = () => (
         <div>
             <h2 className="text-xl font-semibold mb-4">내 판매 물품 목록</h2>
-            {loading ? (
+            {isLoading ? (
                 <p>상품을 불러오는 중...</p>
             ) : error ? (
-                <p className="text-red-500">{error}</p>
+                <p className="text-red-500">{error.message}</p>
             ) : products.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {products.map((product) => (

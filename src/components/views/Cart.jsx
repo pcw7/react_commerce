@@ -1,99 +1,123 @@
 import React, { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
 import { collection, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { useCart } from '../../context/CarContext';
+import { useAuth } from '../../context/AuthContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 function Cart({ onItemRemoved }) {
+    const { user } = useAuth();
+    const userId = user?.userId; // Firestore의 userId 사용
     const [cartItems, setCartItems] = useState([]);
-    const userId = useSelector((state) => state.auth.userId);
     const { isCartOpen, closeCart, fetchCartItemCount } = useCart();
+    const queryClient = useQueryClient();
 
+    // React Query를 사용하여 장바구니 항목 페칭
+    const { data: cartItemsData = [], isLoading, error } = useQuery({
+        queryKey: ['cartItems', userId],
+        queryFn: async () => {
+            if (!userId) return [];
+
+            const cartQuery = query(collection(db, 'CartHistory'), where('userId', '==', userId));
+            const cartSnapshot = await getDocs(cartQuery);
+            const cartItemsList = cartSnapshot.docs.map((doc) => ({
+                id: doc.id,
+                ...doc.data(),
+            }));
+
+            const productPromises = cartItemsList.map(async (cartItem) => {
+                const productQuery = query(collection(db, 'Product'), where('productId', '==', cartItem.productId));
+                const productSnapshot = await getDocs(productQuery);
+                if (!productSnapshot.empty) {
+                    const productData = productSnapshot.docs[0].data();
+                    return {
+                        ...cartItem,
+                        productName: productData.productName,
+                        productPrice: productData.productPrice,
+                        imageUrl: productData.imageUrls[0],
+                    };
+                } else {
+                    return cartItem;
+                }
+            });
+
+            return await Promise.all(productPromises);
+        },
+        enabled: isCartOpen && !!userId, // 장바구니가 열려 있고 userId가 있을 때만 쿼리 실행
+        onSuccess: () => {
+            fetchCartItemCount(userId); // 장바구니 아이템 개수 업데이트
+        },
+    });
+
+    // useEffect(() => {
+    //     setCartItems(cartItemsData);
+    // }, [cartItemsData]);
     useEffect(() => {
-        const fetchCartItemsWithDetails = async () => {
-            if (isCartOpen) {
-                const cartQuery = query(collection(db, 'CartHistory'), where('userId', '==', userId));
-                const cartSnapshot = await getDocs(cartQuery);
-                const cartItemsData = cartSnapshot.docs.map((doc) => ({
-                    id: doc.id,
-                    ...doc.data(),
-                }));
+        if (JSON.stringify(cartItems) !== JSON.stringify(cartItemsData)) {
+            setCartItems(cartItemsData);
+        }
+    }, [cartItemsData]);
 
-                const productPromises = cartItemsData.map(async (cartItem) => {
-                    const productQuery = query(collection(db, 'Product'), where('productId', '==', cartItem.productId));
-                    const productSnapshot = await getDocs(productQuery);
-                    if (!productSnapshot.empty) {
-                        const productData = productSnapshot.docs[0].data();
-                        return {
-                            ...cartItem,
-                            productName: productData.productName,
-                            productPrice: productData.productPrice,
-                            imageUrl: productData.imageUrls[0],
-                        };
-                    } else {
-                        return cartItem;
-                    }
-                });
-
-                const detailedCartItems = await Promise.all(productPromises);
-                setCartItems(detailedCartItems);
-                fetchCartItemCount(userId);  // 장바구니 아이템 개수 업데이트
-            }
-        };
-
-        fetchCartItemsWithDetails();
-    }, [isCartOpen, userId, fetchCartItemCount]);
-
-    const handleQuantityChange = async (itemId, newQuantity) => {
-        if (newQuantity < 1) return;
-
-        try {
+    // 수량 업데이트 Mutation
+    const updateQuantityMutation = useMutation({
+        mutationFn: async ({ itemId, newQuantity }) => {
             const itemRef = collection(db, 'CartHistory');
             const itemDoc = query(itemRef, where('userId', '==', userId), where('productId', '==', itemId));
             const querySnapshot = await getDocs(itemDoc);
             if (!querySnapshot.empty) {
                 const docRef = querySnapshot.docs[0].ref;
-                await updateDoc(docRef, { qunatity: newQuantity });
-
-                setCartItems((prevItems) =>
-                    prevItems.map((item) =>
-                        item.productId === itemId ? { ...item, qunatity: newQuantity } : item
-                    )
-                );
-                fetchCartItemCount(userId);  // 장바구니 아이템 개수 업데이트
+                await updateDoc(docRef, { quantity: newQuantity });
             }
-        } catch (error) {
-            console.error('수량 업데이트 중 오류가 발생했습니다.', error);
-        }
-    };
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['cartItems', userId]); // 장바구니 데이터 새로고침
+            fetchCartItemCount(userId); // 장바구니 아이템 개수 업데이트
+        },
+    });
 
-    const handleRemoveItem = async (itemId) => {
-        try {
+    // 항목 삭제 Mutation
+    const removeItemMutation = useMutation({
+        mutationFn: async (itemId) => {
             const itemRef = collection(db, 'CartHistory');
             const itemDoc = query(itemRef, where('userId', '==', userId), where('productId', '==', itemId));
             const querySnapshot = await getDocs(itemDoc);
             if (!querySnapshot.empty) {
                 const docRef = querySnapshot.docs[0].ref;
                 await deleteDoc(docRef);
-
-                setCartItems((prevItems) => {
-                    const updatedItems = prevItems.filter((item) => item.productId !== itemId);
-                    fetchCartItemCount(userId);  // 장바구니 아이템 개수 업데이트
-                    return updatedItems;
-                });
-
-                if (onItemRemoved) {
-                    onItemRemoved(itemId); // onItemRemoved 콜백 호출
-                }
             }
-        } catch (error) {
-            console.error('장바구니 항목 삭제 중 오류가 발생했습니다.', error);
-        }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['cartItems', userId]); // 장바구니 데이터 새로고침
+            fetchCartItemCount(userId); // 장바구니 아이템 개수 업데이트
+            if (onItemRemoved) {
+                onItemRemoved(itemId); // onItemRemoved 콜백 호출
+            }
+        },
+    });
+
+    // 수량 변경 핸들러
+    const handleQuantityChange = (itemId, newQuantity) => {
+        if (newQuantity < 1) return;
+        updateQuantityMutation.mutate({ itemId, newQuantity });
     };
 
+    // 항목 삭제 핸들러
+    const handleRemoveItem = (itemId) => {
+        removeItemMutation.mutate(itemId);
+    };
+
+    // 가격 포맷 함수
     const formatPrice = (price) => {
         return price.toLocaleString('ko-KR') + '원';
     };
+
+    if (isLoading) {
+        return <div>Loading...</div>;
+    }
+
+    if (error) {
+        return <div>Error: {error.message}</div>;
+    }
 
     return (
         <div
@@ -113,20 +137,20 @@ function Cart({ onItemRemoved }) {
                                 <p>{item.productName}</p>
                                 <div className="flex items-center">
                                     <button
-                                        onClick={() => handleQuantityChange(item.productId, item.qunatity - 1)}
+                                        onClick={() => handleQuantityChange(item.productId, item.quantity - 1)}
                                         className="px-2 py-1 bg-gray-300 text-gray-700 rounded"
                                     >
                                         -
                                     </button>
-                                    <p className="mx-2">{item.qunatity}</p>
+                                    <p className="mx-2">{item.quantity}</p>
                                     <button
-                                        onClick={() => handleQuantityChange(item.productId, item.qunatity + 1)}
+                                        onClick={() => handleQuantityChange(item.productId, item.quantity + 1)}
                                         className="px-2 py-1 bg-gray-300 text-gray-700 rounded"
                                     >
                                         +
                                     </button>
                                 </div>
-                                <p>{item.productPrice}원</p>
+                                <p>{formatPrice(item.productPrice)}</p>
                             </div>
                             <button
                                 onClick={() => handleRemoveItem(item.productId)}
@@ -138,7 +162,7 @@ function Cart({ onItemRemoved }) {
                     ))}
                 </ul>
                 <p className="font-semibold text-lg mt-4">
-                    총 가격: {cartItems.reduce((acc, item) => acc + item.productPrice * item.qunatity, 0)}원
+                    총 가격: {formatPrice(cartItems.reduce((acc, item) => acc + item.productPrice * item.quantity, 0))}
                 </p>
             </div>
         </div>
