@@ -23,7 +23,6 @@ const LoginForm = () => {
       }
     },
     onSuccess: (data) => {
-      // queryClient.setQueryData('user', data.user);
       queryClient.setQueryData('user', { ...data.user, userId: data.userData.userId });
       queryClient.setQueryData('userData', data.userData);
       navigate('/');
@@ -47,8 +46,11 @@ const LoginForm = () => {
         </div>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-gray-700 text-sm font-bold mb-2">이메일</label>
+            <label htmlFor="email" className="block text-gray-700 text-sm font-bold mb-2">
+              이메일
+            </label>
             <input
+              id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -56,8 +58,11 @@ const LoginForm = () => {
             />
           </div>
           <div className="mb-6">
-            <label className="block text-gray-700 text-sm font-bold mb-2">비밀번호</label>
+            <label htmlFor="password" className="block text-gray-700 text-sm font-bold mb-2">
+              비밀번호
+            </label>
             <input
+              id="password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
