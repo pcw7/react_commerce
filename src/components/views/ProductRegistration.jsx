@@ -48,9 +48,52 @@ function ProductRegistration() {
         }
     }, [productData]);
 
+    // 이미지 변환 함수 (Canvas API 사용)
+    const convertImageToWebP = async (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    canvas.toBlob(
+                        (blob) => {
+                            if (blob) {
+                                const webpFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".webp"), { type: "image/webp" });
+                                resolve(webpFile);
+                            } else {
+                                reject(new Error('WebP 변환 실패'));
+                            }
+                        },
+                        'image/webp',
+                        0.8  // 품질 설정 (0.0 ~ 1.0)
+                    );
+                };
+                img.onerror = (error) => reject(error);
+                img.src = reader.result;
+            };
+            reader.onerror = (error) => reject(error);
+            reader.readAsDataURL(file);
+        });
+    };
+
     // 이미지 변경 핸들러
-    const handleImageChange = (e) => {
-        setImages(Array.from(e.target.files));
+    const handleImageChange = async (e) => {
+        const files = Array.from(e.target.files);
+        const webpImages = await Promise.all(files.map(async (file) => {
+            try {
+                const webpFile = await convertImageToWebP(file);
+                return webpFile;
+            } catch (error) {
+                console.error('이미지 변환 중 오류 발생:', error);
+                return file;  // 변환 실패 시 원본 이미지 사용
+            }
+        }));
+        setImages(webpImages);
     };
 
     // 기존 이미지 삭제
