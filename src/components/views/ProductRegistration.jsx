@@ -83,6 +83,10 @@ function ProductRegistration() {
 
     // 이미지 변경 핸들러
     const handleImageChange = async (e) => {
+        // 등록 테스트시 필요
+        // const mockFile = new File(['dummy content'], 'example.png', { type: 'image/png' });
+        // setImages([mockFile]);
+
         const files = Array.from(e.target.files);
         const webpImages = await Promise.all(files.map(async (file) => {
             try {
@@ -115,6 +119,7 @@ function ProductRegistration() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries('products');
+            alert('상품이 성공적으로 등록되었습니다!');
             navigate('/mypage');
         },
         onError: () => {
