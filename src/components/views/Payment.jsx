@@ -105,6 +105,7 @@ function Payment() {
                 items: cartItems,
                 totalAmount,
                 // paymentData,
+                status: 'Payment completed',
                 createdAt: new Date(),
             });
         } catch (error) {
