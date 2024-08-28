@@ -14,6 +14,7 @@ const ProductRegistration = lazy(() => import('./components/views/ProductRegistr
 const ProductDetail = lazy(() => import('./components/views/ProductDetail'));
 const AllProductsPage = lazy(() => import('./components/views/AllProductsPage'));
 const Payment = lazy(() => import('./components/views/Payment'));
+const OrderSuccess = lazy(() => import('./components/views/OrderSuccess'));
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ function App() {
                 <Route path="/product-registration/:productId" element={<ProductRegistration />} />
                 <Route path="/product/:productId" element={<ProductDetail />} />
                 <Route path="/payment" element={<Payment />} />
+                <Route path="/orderSuccess" element={<OrderSuccess />} />
               </Routes>
             </Suspense>
           </Router>
