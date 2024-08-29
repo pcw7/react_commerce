@@ -16,10 +16,11 @@ function ProductDetail() {
     const queryClient = useQueryClient();
     const [relatedProducts, setRelatedProducts] = useState([]);
     const [selectedImage, setSelectedImage] = useState('');
+    const [sellerInfo, setSellerInfo] = useState(null);
     const { incrementCartCount, openCart, closeCart, isCartOpen } = useCart();
 
     // 상품 정보 가져오기
-    const { data: product, isLoading, error } = useQuery({
+    const { data: product, isLoading, error, refetch } = useQuery({
         queryKey: ['product', productId],
         queryFn: async () => {
             const q = query(collection(db, 'Product'), where('productId', '==', parseInt(productId)));
@@ -34,7 +35,7 @@ function ProductDetail() {
     });
 
     // 장바구니에 이미 있는지 확인
-    const { data: isInCart, refetch } = useQuery({
+    const { data: isInCart } = useQuery({
         queryKey: ['cartItem', userId, productId],
         queryFn: async () => {
             if (!userId) return false;
@@ -48,6 +49,23 @@ function ProductDetail() {
         },
         enabled: !!userId,
     });
+
+    // 판매자 정보 가져오기
+    const fetchSellerInfo = useCallback(async (sellerId) => {
+        try {
+            // sellerId로 User 컬렉션에서 userId 찾기
+            const sellerQuery = query(collection(db, 'User'), where('userId', '==', sellerId));
+            const sellerSnapshot = await getDocs(sellerQuery);
+            if (!sellerSnapshot.empty) {
+                const sellerDoc = sellerSnapshot.docs[0].data();
+                setSellerInfo(sellerDoc);
+            } else {
+                console.error('판매자 정보를 찾을 수 없습니다.');
+            }
+        } catch (error) {
+            console.error('판매자 정보를 불러오는 중 오류가 발생했습니다.', error);
+        }
+    }, []);
 
     // 관련 상품 가져오기 함수
     const fetchRelatedProducts = useCallback(async (category) => {
@@ -72,8 +90,9 @@ function ProductDetail() {
         if (product) {
             setSelectedImage(product.imageUrls[0]);
             fetchRelatedProducts(product.productCategory);
+            fetchSellerInfo(product.sellerId); // 판매자 정보 가져오기
         }
-    }, [product, fetchRelatedProducts]);
+    }, [product, fetchRelatedProducts, fetchSellerInfo]);
 
     const handleAddToCart = useCallback(async () => {
         if (!userId) {
@@ -185,9 +204,16 @@ function ProductDetail() {
                     </div>
                     <div>
                         <p className="text-xl font-semibold mb-4">{product.description}</p>
-                        <p className="text-red-500 text-2xl font-bold">{formatPrice(product.productPrice)}</p>
-                        <p className="text-gray-700 text-lg font-semibold mt-2">수량: {product.productQunatity}</p>
+                        {sellerInfo ? (
+                            <>
+                                <p className="text-gray-700 text-lg font-semibold mt-2">판매자 이름: {sellerInfo.username}</p>
+                            </>
+                        ) : (
+                            <p>판매자 정보를 불러오는 중...</p>
+                        )}
                         <p className="text-gray-700 text-lg font-semibold mt-2">카테고리: {product.productCategory}</p>
+                        <p className="text-gray-700 text-lg font-semibold mt-2">수량: {product.productQunatity}</p>
+                        <p className="text-red-500 text-2xl font-bold">{formatPrice(product.productPrice)}</p>
 
                         {isInCart ? (
                             <button
