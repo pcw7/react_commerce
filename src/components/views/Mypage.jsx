@@ -247,6 +247,7 @@ function Mypage() {
                                                     value={item.status}
                                                     onChange={(e) => handleStatusChange(order.id, item.id, e)}
                                                     className="mt-2 p-2 bg-gray-200 rounded"
+                                                    disabled={item.status === 3}
                                                 >
                                                     <option value={0}>주문 완료</option>
                                                     <option value={1}>발송 대기</option>
