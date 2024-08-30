@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '@/firebase';
-import { collection, query, where, getDocs, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 
@@ -45,6 +45,34 @@ function Mypage() {
             }));
         },
         enabled: activeTab === 'purchasedItems',
+    });
+
+    const { data: soldItems = [], isLoading: isLoadingSold, error: errorSold } = useQuery({
+        queryKey: ['soldItems', userId],
+        queryFn: async () => {
+            if (!isSeller) return [];
+
+            // Orders 컬렉션에서 모든 문서 가져오기
+            const q = query(
+                collection(db, 'Orders'),
+                orderBy('createdAt', 'desc')
+            );
+
+            const querySnapshot = await getDocs(q);
+
+            // 현재 로그인한 사용자의 userId와 일치하는 항목 필터링
+            const filteredOrders = querySnapshot.docs
+                .map((doc) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                }))
+                .filter(order =>
+                    order.items.some(item => item.userId === userId)
+                );
+
+            return filteredOrders;
+        },
+        enabled: activeTab === 'soldItems' && isSeller,
     });
 
     const cancelOrderMutation = useMutation({
@@ -161,6 +189,52 @@ function Mypage() {
         </div>
     );
 
+    const renderSoldItemsTab = () => (
+        <div>
+            <h2 className="text-xl font-semibold mb-4">판매된 물품 목록</h2>
+            {isLoadingSold ? (
+                <p>판매된 물품을 불러오는 중...</p>
+            ) : errorSold ? (
+                <p className="text-red-500">{errorSold.message}</p>
+            ) : soldItems.length > 0 ? (
+                <div className="space-y-4">
+                    {soldItems.map((order) => {
+                        const createdAt = order.createdAt ? new Date(order.createdAt.seconds * 1000) : new Date();
+                        return (
+                            <div key={order.id} className="border rounded-lg p-4 shadow-sm">
+                                <h3 className="text-lg font-semibold mb-2">주문 날짜: {createdAt.toLocaleDateString()}</h3>
+                                <p className="text-gray-700 mb-2">주문 상태: {order.status}</p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    {order.items
+                                        .filter(item => item.userId === userId) // 현재 사용자와 일치하는 항목만 표시
+                                        .map((item, index) => (
+                                            <div
+                                                key={index}
+                                                className="border rounded-lg p-4 shadow-sm cursor-pointer"
+                                                onClick={() => handleProductClick(item.productId)}
+                                            >
+                                                <img
+                                                    src={item.imageUrl}
+                                                    alt={`${item.productName} 이미지`}
+                                                    className="w-full h-48 object-cover rounded-t-lg"
+                                                />
+                                                <h3 className="text-lg font-semibold mt-2">{item.productName}</h3>
+                                                <p className="text-gray-600">{item.description}</p>
+                                                <p className="text-red-500 font-bold mt-1">{item.productPrice}원</p>
+                                                <p className="text-gray-600">수량: {item.quantity}</p>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : (
+                <p>판매된 물품이 없습니다.</p>
+            )}
+        </div>
+    );
+
     return (
         <div className="min-h-screen bg-gray-100">
             <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
@@ -173,12 +247,20 @@ function Mypage() {
                         프로필
                     </button>
                     {isSeller && (
-                        <button
-                            className={`tab ${activeTab === 'products' ? 'active' : ''} mr-4 px-4 py-2 text-sm font-medium text-gray-900 bg-white rounded-md shadow`}
-                            onClick={() => setActiveTab('products')}
-                        >
-                            판매물품
-                        </button>
+                        <>
+                            <button
+                                className={`tab ${activeTab === 'products' ? 'active' : ''} mr-4 px-4 py-2 text-sm font-medium text-gray-900 bg-white rounded-md shadow`}
+                                onClick={() => setActiveTab('products')}
+                            >
+                                판매물품
+                            </button>
+                            <button
+                                className={`tab ${activeTab === 'soldItems' ? 'active' : ''} mr-4 px-4 py-2 text-sm font-medium text-gray-900 bg-white rounded-md shadow`}
+                                onClick={() => setActiveTab('soldItems')}
+                            >
+                                판매된 물품
+                            </button>
+                        </>
                     )}
                     <button
                         className={`tab ${activeTab === 'purchasedItems' ? 'active' : ''} px-4 py-2 text-sm font-medium text-gray-900 bg-white rounded-md shadow`}
@@ -191,6 +273,7 @@ function Mypage() {
                 <div className="tab-content mt-8">
                     {activeTab === 'profile' && renderProfileTab()}
                     {activeTab === 'products' && isSeller && renderProductsTab()}
+                    {activeTab === 'soldItems' && isSeller && renderSoldItemsTab()}
                     {activeTab === 'purchasedItems' && renderPurchasedItemsTab()}
                 </div>
 

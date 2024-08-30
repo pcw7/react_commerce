@@ -22,15 +22,18 @@ function Payment() {
 
         try {
             // Firestore 트랜잭션을 사용하여 상품 수량을 먼저 감소시킵니다.
-            await runTransaction(db, async (transaction) => {
+            const updatedCartItems = await runTransaction(db, async (transaction) => {
+                const updatedItems = [];
+
                 for (const cartItem of cartItems) {
                     const productQuery = query(collection(db, 'Product'), where('productId', '==', cartItem.productId));
                     const productSnapshot = await getDocs(productQuery);
 
                     if (!productSnapshot.empty) {
-                        const productDoc = productSnapshot.docs[0]; // 첫 번째 문서를 가져옴
-                        const productRef = productDoc.ref; // 문서의 참조를 가져옴
-                        const currentQuantity = productDoc.data().productQunatity;
+                        const productDoc = productSnapshot.docs[0];
+                        const productData = productDoc.data();
+                        const productRef = productDoc.ref;
+                        const currentQuantity = productData.productQunatity;
 
                         if (currentQuantity < cartItem.quantity) {
                             throw new Error(`상품 "${cartItem.productName}"의 수량이 부족합니다.`);
@@ -39,10 +42,18 @@ function Payment() {
                         // 수량을 감소시킵니다.
                         const newQuantity = currentQuantity - cartItem.quantity;
                         transaction.update(productRef, { productQunatity: newQuantity });
+
+                        // userId를 sellerId로 변경합니다.
+                        updatedItems.push({
+                            ...cartItem,
+                            userId: productData.sellerId, // userId를 sellerId로 변경
+                        });
                     } else {
                         throw new Error(`상품 "${cartItem.productName}"을 찾을 수 없습니다.`);
                     }
                 }
+
+                return updatedItems;
             });
 
             // 상품 수량 감소가 성공한 후에 결제를 진행합니다.
@@ -62,12 +73,12 @@ function Payment() {
             }, async (rsp) => {
                 if (rsp.success) {
                     console.log('결제 성공', rsp);
-                    await createOrder(rsp);
+                    await createOrder(rsp, updatedCartItems);
                     navigate('/orderSuccess');
                 } else {
                     console.log('결제 실패', rsp);
                     alert(`결제에 실패했습니다: ${rsp.error_msg}`);
-                    await rollbackStock();
+                    await rollbackStock(updatedCartItems);
                 }
             });
         } catch (error) {
@@ -76,10 +87,10 @@ function Payment() {
         }
     };
 
-    const rollbackStock = async () => {
+    const rollbackStock = async (items) => {
         try {
             await runTransaction(db, async (transaction) => {
-                for (const cartItem of cartItems) {
+                for (const cartItem of items) {
                     const productQuery = query(collection(db, 'Product'), where('productId', '==', cartItem.productId));
                     const productSnapshot = await getDocs(productQuery);
 
@@ -98,7 +109,7 @@ function Payment() {
         }
     };
 
-    const createOrder = async (paymentData) => {
+    const createOrder = async (paymentData, items) => {
         try {
             // 트랜잭션을 사용하여 고유한 orderId 생성
             const orderId = await runTransaction(db, async (transaction) => {
@@ -115,17 +126,16 @@ function Payment() {
                 return newOrderNumber;
             });
 
-            const itemsWithStatus = cartItems.map(item => ({
+            const itemsWithStatus = items.map(item => ({
                 ...item,
                 status: 0
             }));
 
             await addDoc(collection(db, 'Orders'), {
                 orderId,
-                userId: userId,
-                items: itemsWithStatus,
+                userId: userId, // 여기서는 주문을 한 사용자의 userId (구매자)
+                items: itemsWithStatus, // 여기에는 각 아이템의 userId가 판매자의 sellerId로 저장됨
                 totalAmount,
-                // paymentData,
                 status: 'Payment completed',
                 createdAt: new Date(),
             });
