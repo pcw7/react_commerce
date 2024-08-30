@@ -115,10 +115,15 @@ function Payment() {
                 return newOrderNumber;
             });
 
+            const itemsWithStatus = cartItems.map(item => ({
+                ...item,
+                status: 0
+            }));
+
             await addDoc(collection(db, 'Orders'), {
                 orderId,
                 userId: userId,
-                items: cartItems,
+                items: itemsWithStatus,
                 totalAmount,
                 // paymentData,
                 status: 'Payment completed',
