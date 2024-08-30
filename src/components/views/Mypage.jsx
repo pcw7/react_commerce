@@ -97,7 +97,15 @@ function Mypage() {
     const cancelOrderMutation = useMutation({
         mutationFn: async (orderId) => {
             const orderRef = doc(db, 'Orders', orderId);
-            await updateDoc(orderRef, { status: 'CANCELED' });
+            const orderSnapshot = await getDoc(orderRef);
+            if (orderSnapshot.exists()) {
+                const orderData = orderSnapshot.data();
+                const updatedItems = orderData.items.map(item => ({
+                    ...item,
+                    status: 3,
+                }));
+                await updateDoc(orderRef, { items: updatedItems, status: 'CANCELED' });
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['purchasedItems', userId]);
@@ -109,7 +117,7 @@ function Mypage() {
         if (confirmed) {
             cancelOrderMutation.mutate(orderId);
         }
-    }
+    };
 
     const handleStatusChange = (orderId, itemId, event) => {
         const newStatus = parseInt(event.target.value);
