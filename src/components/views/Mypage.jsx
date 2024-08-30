@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '@/firebase';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 
@@ -11,6 +11,10 @@ function Mypage() {
     const [activeTab, setActiveTab] = useState('profile');
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+
+    const handleProductClick = (productId) => {
+        navigate(`/product/${productId}`);
+    };
 
     const { data: products = [], isLoading: isLoadingProducts, error: errorProducts } = useQuery({
         queryKey: ['products', userId],
@@ -52,7 +56,6 @@ function Mypage() {
         queryFn: async () => {
             if (!isSeller) return [];
 
-            // Orders 컬렉션에서 모든 문서 가져오기
             const q = query(
                 collection(db, 'Orders'),
                 orderBy('createdAt', 'desc')
@@ -60,7 +63,6 @@ function Mypage() {
 
             const querySnapshot = await getDocs(q);
 
-            // 현재 로그인한 사용자의 userId와 일치하는 항목 필터링
             const filteredOrders = querySnapshot.docs
                 .map((doc) => ({
                     id: doc.id,
@@ -75,6 +77,23 @@ function Mypage() {
         enabled: activeTab === 'soldItems' && isSeller,
     });
 
+    const updateStatusMutation = useMutation({
+        mutationFn: async ({ orderId, itemId, newStatus }) => {
+            const orderRef = doc(db, 'Orders', orderId);
+            const orderSnapshot = await getDoc(orderRef);
+            if (orderSnapshot.exists()) {
+                const orderData = orderSnapshot.data();
+                const updatedItems = orderData.items.map(item =>
+                    item.id === itemId ? { ...item, status: newStatus } : item
+                );
+                await updateDoc(orderRef, { items: updatedItems });
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['soldItems', userId]); // soldItems 쿼리 무효화하여 최신 데이터 가져오기
+        },
+    });
+
     const cancelOrderMutation = useMutation({
         mutationFn: async (orderId) => {
             const orderRef = doc(db, 'Orders', orderId);
@@ -85,15 +104,16 @@ function Mypage() {
         },
     });
 
-    const handleProductClick = (productId) => {
-        navigate(`/product/${productId}`);
-    };
-
     const handleCancelOrder = (orderId) => {
         const confirmed = window.confirm('정말로 주문을 취소하시겠습니까?');
         if (confirmed) {
             cancelOrderMutation.mutate(orderId);
         }
+    }
+
+    const handleStatusChange = (orderId, itemId, event) => {
+        const newStatus = parseInt(event.target.value);
+        updateStatusMutation.mutate({ orderId, itemId, newStatus });
     };
 
     const renderProfileTab = () => (
@@ -156,13 +176,13 @@ function Mypage() {
                                     {order.items.map((item, index) => (
                                         <div
                                             key={index}
-                                            className="border rounded-lg p-4 shadow-sm cursor-pointer"
-                                            onClick={() => handleProductClick(item.productId)}
+                                            className="border rounded-lg p-4 shadow-sm"
                                         >
                                             <img
                                                 src={item.imageUrl}
                                                 alt={`${item.productName} 이미지`}
-                                                className="w-full h-48 object-cover rounded-t-lg"
+                                                className="w-full h-48 object-cover rounded-t-lg cursor-pointer"
+                                                onClick={() => handleProductClick(item.productId)}
                                             />
                                             <h3 className="text-lg font-semibold mt-2">{item.productName}</h3>
                                             <p className="text-gray-600">{item.description}</p>
@@ -211,19 +231,28 @@ function Mypage() {
                                         .map((item, index) => (
                                             <div
                                                 key={index}
-                                                className="border rounded-lg p-4 shadow-sm cursor-pointer"
-                                                onClick={() => handleProductClick(item.productId)}
+                                                className="border rounded-lg p-4 shadow-sm"
                                             >
                                                 <img
                                                     src={item.imageUrl}
                                                     alt={`${item.productName} 이미지`}
-                                                    className="w-full h-48 object-cover rounded-t-lg"
+                                                    className="w-full h-48 object-cover rounded-t-lg cursor-pointer"
+                                                    onClick={() => handleProductClick(item.productId)}
                                                 />
                                                 <h3 className="text-lg font-semibold mt-2">{item.productName}</h3>
                                                 <p className="text-gray-600">{item.description}</p>
                                                 <p className="text-red-500 font-bold mt-1">{item.productPrice}원</p>
                                                 <p className="text-gray-600">수량: {item.quantity}</p>
-                                                <p className="text-gray-600">주문정보의 상태: {item.status}</p>
+                                                <select
+                                                    value={item.status}
+                                                    onChange={(e) => handleStatusChange(order.id, item.id, e)}
+                                                    className="mt-2 p-2 bg-gray-200 rounded"
+                                                >
+                                                    <option value={0}>주문 완료</option>
+                                                    <option value={1}>발송 대기</option>
+                                                    <option value={2}>발송 시작</option>
+                                                    <option value={3}>주문 취소</option>
+                                                </select>
                                             </div>
                                         ))}
                                 </div>
