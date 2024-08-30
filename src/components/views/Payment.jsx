@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { collection, addDoc, runTransaction, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, runTransaction, query, where, getDocs, doc } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -100,7 +100,23 @@ function Payment() {
 
     const createOrder = async (paymentData) => {
         try {
+            // 트랜잭션을 사용하여 고유한 orderId 생성
+            const orderId = await runTransaction(db, async (transaction) => {
+                const counterRef = doc(db, 'Counters', 'orderCounter');
+                const counterDoc = await transaction.get(counterRef);
+
+                if (!counterDoc.exists()) {
+                    throw new Error('Counter 문서가 존재하지 않습니다!');
+                }
+
+                const newOrderNumber = counterDoc.data().count + 1;
+                transaction.update(counterRef, { count: newOrderNumber });
+
+                return newOrderNumber;
+            });
+
             await addDoc(collection(db, 'Orders'), {
+                orderId,
                 userId: userId,
                 items: cartItems,
                 totalAmount,
