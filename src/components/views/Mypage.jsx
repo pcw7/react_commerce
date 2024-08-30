@@ -149,7 +149,8 @@ function Mypage() {
                         const totalAmount = order.items.reduce((total, item) => total + item.productPrice * item.quantity, 0); // 총 결제금액 계산
                         return (
                             <div key={order.id} className="border rounded-lg p-4 shadow-sm">
-                                <h3 className="text-lg font-semibold mb-2">주문 날짜: {createdAt.toLocaleDateString()}</h3>
+                                <h3 className="text-lg font-semibold mb-2">주문 번호: {order.orderId}</h3>
+                                <h3 className="text-gray-700 mb-2">주문 날짜: {createdAt.toLocaleDateString()}</h3>
                                 <p className="text-gray-700 mb-2">주문 상태: {order.status}</p>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                     {order.items.map((item, index) => (
@@ -202,8 +203,8 @@ function Mypage() {
                         const createdAt = order.createdAt ? new Date(order.createdAt.seconds * 1000) : new Date();
                         return (
                             <div key={order.id} className="border rounded-lg p-4 shadow-sm">
-                                <h3 className="text-lg font-semibold mb-2">주문 날짜: {createdAt.toLocaleDateString()}</h3>
-                                <p className="text-gray-700 mb-2">주문 상태: {order.status}</p>
+                                <h3 className="text-lg font-semibold mb-2">주문 번호: {order.orderId}</h3>
+                                <h3 className="text-gray-700 mb-2">주문 날짜: {createdAt.toLocaleDateString()}</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                                     {order.items
                                         .filter(item => item.userId === userId) // 현재 사용자와 일치하는 항목만 표시
@@ -222,6 +223,7 @@ function Mypage() {
                                                 <p className="text-gray-600">{item.description}</p>
                                                 <p className="text-red-500 font-bold mt-1">{item.productPrice}원</p>
                                                 <p className="text-gray-600">수량: {item.quantity}</p>
+                                                <p className="text-gray-600">주문정보의 상태: {item.status}</p>
                                             </div>
                                         ))}
                                 </div>
