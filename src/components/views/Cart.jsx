@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { collection, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/firebase';
 import { useCart } from '../../context/CarContext';
@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 function Cart({ onItemRemoved }) {
     const { user } = useAuth();
     const userId = user?.userId; // Firestore의 userId 사용
-    const [cartItems, setCartItems] = useState([]);
     const [selectedItems, setSelectedItems] = useState([]); // 선택된 항목을 관리하는 상태 추가
     const { isCartOpen, closeCart, fetchCartItemCount } = useCart();
     const queryClient = useQueryClient();
@@ -51,12 +50,6 @@ function Cart({ onItemRemoved }) {
             fetchCartItemCount(userId); // 장바구니 아이템 개수 업데이트
         },
     });
-
-    useEffect(() => {
-        if (JSON.stringify(cartItems) !== JSON.stringify(cartItemsData)) {
-            setCartItems(cartItemsData);
-        }
-    }, [cartItemsData]);
 
     // 수량 업데이트 Mutation
     const updateQuantityMutation = useMutation({
@@ -117,7 +110,7 @@ function Cart({ onItemRemoved }) {
 
     // 구매하기 핸들러
     const handleCheckout = () => {
-        const selectedCartItems = cartItems.filter((item) => selectedItems.includes(item.productId));
+        const selectedCartItems = cartItemsData.filter((item) => selectedItems.includes(item.productId));
         navigate('/payment', { state: { cartItems: selectedCartItems } }); // 선택된 항목만 결제 페이지로 전달
     };
 
@@ -145,7 +138,7 @@ function Cart({ onItemRemoved }) {
                 </button>
                 <h2 className="text-2xl font-bold mb-4">장바구니</h2>
                 <ul className="divide-y divide-gray-200">
-                    {cartItems.map((item, index) => (
+                    {cartItemsData.map((item, index) => (
                         <li key={index} className="py-2 flex items-center">
                             <input
                                 type="checkbox"
@@ -183,7 +176,7 @@ function Cart({ onItemRemoved }) {
                     ))}
                 </ul>
                 <p className="font-semibold text-lg mt-4">
-                    총 가격: {formatPrice(cartItems.reduce((acc, item) => acc + item.productPrice * item.quantity, 0))}
+                    총 가격: {formatPrice(cartItemsData.reduce((acc, item) => acc + item.productPrice * item.quantity, 0))}
                 </p>
                 {/* 구매하기 버튼 추가 */}
                 <button
