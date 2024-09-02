@@ -4,6 +4,39 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { db } from '@/firebase';
 import { collection, getDocs, query, orderBy, where, limit, startAfter } from 'firebase/firestore';
 import { useInView } from 'react-intersection-observer';
+import Slider from 'react-slick';
+import 'slick-carousel/slick/slick.css';
+import 'slick-carousel/slick/slick-theme.css';
+
+function NextArrow(props) {
+    const { onClick } = props;
+    return (
+        <div
+            className="absolute top-1/2 right-0 z-10 cursor-pointer"
+            onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+            }}
+        >
+            <i className="fas fa-chevron-right text-lg text-gray-600"></i>
+        </div>
+    );
+}
+
+function PrevArrow(props) {
+    const { onClick } = props;
+    return (
+        <div
+            className="absolute top-1/2 left-0 z-10 cursor-pointer"
+            onClick={(e) => {
+                e.stopPropagation();
+                onClick();
+            }}
+        >
+            <i className="fas fa-chevron-left text-lg text-gray-600"></i>
+        </div>
+    );
+}
 
 function AllProductsPage() {
     const [selectedCategory, setSelectedCategory] = useState('전체');
@@ -83,6 +116,19 @@ function AllProductsPage() {
         return price.toLocaleString('ko-KR') + '원';
     };
 
+    const sliderSettings = {
+        dots: true,
+        infinite: true,
+        speed: 500,
+        slidesToShow: 1,
+        slidesToScroll: 1,
+        nextArrow: <NextArrow />,
+        prevArrow: <PrevArrow />,
+        adaptiveHeight: true, // 이미지 크기에 따라 슬라이더 높이 자동 조정
+        autoplay: true,  // 자동 재생 활성화
+        autoplaySpeed: 1500,  // 1초마다 이미지 변경
+    };
+
     return (
         <div className="min-h-screen bg-gray-100">
             <div className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
@@ -148,16 +194,26 @@ function AllProductsPage() {
                                     <div
                                         key={product.id}
                                         className="border rounded-lg p-4 shadow-sm cursor-pointer"
-                                        onClick={() => handleProductClick(product.productId)}
                                     >
-                                        <img
-                                            src={product.imageUrls[0]}
-                                            alt={`${product.productName} 이미지`}
-                                            className="w-full h-48 object-cover rounded-t-lg"
-                                        />
-                                        <h3 className="text-lg font-semibold mt-2">{product.productName}</h3>
-                                        <p className="text-gray-600">{product.description}</p>
-                                        <p className="text-red-500 font-bold mt-1">{formatPrice(product.productPrice)}</p>
+                                        <Slider {...sliderSettings} className="w-full">
+                                            {product.imageUrls.map((url, index) => (
+                                                <div key={index} className="relative w-full h-48">
+                                                    <img
+                                                        src={url}
+                                                        alt={`${product.productName} 이미지 ${index + 1}`}
+                                                        className="absolute top-0 left-0 w-full h-full object-cover rounded-t-lg"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </Slider>
+                                        <div
+                                            onClick={() => handleProductClick(product.productId)}
+                                            className="mt-6" // 여기에 마진을 추가했습니다.
+                                        >
+                                            <h3 className="text-lg font-semibold">{product.productName}</h3>
+                                            <p className="text-gray-600">{product.description}</p>
+                                            <p className="text-red-500 font-bold mt-1">{formatPrice(product.productPrice)}</p>
+                                        </div>
                                     </div>
                                 ))
                             )}
