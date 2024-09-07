@@ -18,4 +18,4 @@
         디자인/설계 : Figma
         백엔드 서비스 : Firebase
 
-자세한 정보는 [GitBook 문서](https://app.gitbook.com/o/0U3NUnYs06Umx7B8BPrL/s/PabGBbi2jFuwVm6sxwx8/)에서 확인할 수 있습니다.
+자세한 정보는 [GitBook 문서](https://commerce-1.gitbook.io/commerce)에서 확인할 수 있습니다.
